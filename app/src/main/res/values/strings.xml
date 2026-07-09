@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StudEdu</string>
+    <string name="tab_today">Сегодня</string>
+    <string name="tab_notes">Заметки</string>
+    <string name="tab_students">Ученики</string>
+    <string name="tab_settings">Настройки</string>
+</resources>
