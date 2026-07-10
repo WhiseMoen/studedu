@@ -29,21 +29,12 @@ private val DarkColors = darkColorScheme(
 @Composable
 fun StudeduTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // Dynamic color (Material You) выключен: он перекрасил бы нашу
+    // пастельную палитру в цвета обоев пользователя. Вернуть как опцию
+    // в настройках — если захочется.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context)
-            else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColors
-        else -> LightColors
-    }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content,
-    )
-}
+            val context = LocalConte

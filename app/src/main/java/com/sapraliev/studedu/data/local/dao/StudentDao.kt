@@ -52,12 +52,13 @@ interface StudentDao {
 
     /**
      * Баланс ученика за период: SUM(payment) − SUM(charge).
-     * direction хранится как имя enum-константы ('PAYMENT' / 'CHARGE').
+     * direction хранится в нижнем регистре ('payment' / 'charge'),
+     * как в Postgres — см. Converters.
      */
     @Query(
         """
         SELECT COALESCE(SUM(
-            CASE direction WHEN 'PAYMENT' THEN amount ELSE -amount END
+            CASE direction WHEN 'payment' THEN amount ELSE -amount END
         ), 0)
         FROM payments
         WHERE student_id = :studentId AND date BETWEEN :from AND :to
@@ -69,5 +70,4 @@ interface StudentDao {
     suspend fun upsertPayment(payment: PaymentEntity)
 
     @Delete
-    suspend fun deletePayment(payment: PaymentEntity)
-}
+    suspend f
