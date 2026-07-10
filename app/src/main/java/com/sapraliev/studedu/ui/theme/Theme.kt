@@ -1,52 +1,57 @@
 package com.sapraliev.studedu.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.CompositionLocalProvider
 
-// База — читаемый, контрастный Material 3.
-// Неоморфизм — только точечные акценты на главном экране (Этап 5).
+// База — читаемый пастельный Material 3.
+// Dynamic color (Material You) сознательно выключен: он перекрасил бы
+// палитру в цвета обоев. Неоморфизм — только точечные акценты.
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF2B2D42),
-    secondary = Color(0xFFEF8354),
-    tertiary = Color(0xFF4F5D75),
+    primary = InkPrimary,
+    onPrimary = InkOnPrimary,
+    secondary = PeachSecondary,
+    tertiary = SageTertiary,
+    background = CreamBackground,
+    surface = CreamSurface,
+    error = ConflictRed,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFBFC0D9),
-    secondary = Color(0xFFEF8354),
-    tertiary = Color(0xFFBFC9DB),
+    primary = NightPrimary,
+    secondary = NightSecondary,
+    tertiary = NightTertiary,
+    background = NightBackground,
+    surface = NightSurface,
+    error = ConflictRed,
 )
 
 @Composable
 fun StudeduTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color (Material You) выключен: он перекрасил бы нашу
-    // пастельную палитру в цвета обоев пользователя. Вернуть как опцию
-    // в настройках — если захочется.
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context)
-            else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColors
-        else -> LightColors
+    val colorScheme = if (darkTheme) DarkColors else LightColors
+    val neuShadows = if (darkTheme) {
+        NeuShadows(light = NeuLightShadowDark, dark = NeuDarkShadowDark)
+    } else {
+        NeuShadows(light = NeuLightShadowLight, dark = NeuDarkShadowLight)
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content,
-    )
+    CompositionLocalProvider(LocalNeuShadows provides neuShadows) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            content = content,
+        )
+    }
 }
+
+/** Пастельный цвет карточки по типу события. */
+object EventPalette {
+    @Composable
+    fun personal(darkTheme: Boolean = isSystemInDarkTheme()) =
+        if 
