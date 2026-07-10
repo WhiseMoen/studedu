@@ -3,6 +3,7 @@ package com.sapraliev.studedu.data.local
 import androidx.room.TypeConverter
 import com.sapraliev.studedu.data.local.entity.EventType
 import com.sapraliev.studedu.data.local.entity.ExceptionType
+import com.sapraliev.studedu.data.local.entity.HiddenLessonMode
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
 import com.sapraliev.studedu.data.local.entity.RecurrenceFreq
 import com.sapraliev.studedu.data.local.entity.TaskSource
@@ -88,6 +89,13 @@ class Converters {
     @TypeConverter
     fun stringToTaskSource(value: String?): TaskSource? =
         value?.let { TaskSource.valueOf(it.uppercase()) }
+
+    @TypeConverter
+    fun hiddenLessonModeToString(value: HiddenLessonMode?): String? = value?.name?.lowercase()
+
+    @TypeConverter
+    fun stringToHiddenLessonMode(value: String?): HiddenLessonMode? =
+        value?.let { HiddenLessonMode.valueOf(it.uppercase()) }
 
     private companion object {
         /** U+001F (unit separator) — не встречается в обычном тексте. */

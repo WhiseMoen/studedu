@@ -70,4 +70,5 @@ interface StudentDao {
     suspend fun upsertPayment(payment: PaymentEntity)
 
     @Delete
-    suspend f
+    suspend fun deletePayment(payment: PaymentEntity)
+}

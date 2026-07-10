@@ -77,4 +77,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.lib.recur)
 
- 
+    // Тесты
+    testImplementation(libs.junit)
+}
