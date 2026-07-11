@@ -102,4 +102,8 @@ data class RecurrenceExceptionEntity(
     @ColumnInfo(name = "event_id") val eventId: String,
     /** Какое вхождение серии затронуто (его исходный старт). */
     @ColumnInfo(name = "original_date") val originalDate: Instant,
-    va
+    val type: ExceptionType,
+    @ColumnInfo(name = "new_start_at") val newStartAt: Instant? = null,
+    @ColumnInfo(name = "new_end_at") val newEndAt: Instant? = null,
+    @ColumnInfo(name = "created_at") val createdAt: Instant,
+)

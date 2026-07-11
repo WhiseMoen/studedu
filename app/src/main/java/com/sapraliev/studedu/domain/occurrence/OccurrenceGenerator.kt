@@ -129,4 +129,6 @@ class OccurrenceGenerator(
 
     private companion object {
         /** Предохранитель от вечного цикла на некорректном правиле. */
-        con
+        const val MAX_ITERATIONS = 1000
+    }
+}

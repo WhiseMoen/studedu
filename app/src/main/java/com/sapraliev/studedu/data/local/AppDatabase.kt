@@ -86,4 +86,75 @@ abstract class AppDatabase : RoomDatabase() {
         /**
          * v2 → v3: enrollments (ученик × предмет), enrollment_id в events /
          * lesson_records / payments, lesson_record_id в payments;
-         * из students уходят subject и став
+         * из students уходят subject и ставки (переехали в enrollments).
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `enrollments` (
+                        `id` TEXT NOT NULL,
+                        `user_id` TEXT NOT NULL,
+                        `student_id` TEXT NOT NULL,
+                        `subject` TEXT NOT NULL,
+                        `price_per_lesson` REAL,
+                        `billing_mode` TEXT NOT NULL,
+                        `monthly_fee` REAL,
+                        `active` INTEGER NOT NULL,
+                        `created_at` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`student_id`) REFERENCES `students`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_enrollments_student_id` " +
+                        "ON `enrollments` (`student_id`)"
+                )
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `enrollment_id` TEXT")
+                db.execSQL("ALTER TABLE `lesson_records` ADD COLUMN `enrollment_id` TEXT")
+                db.execSQL("ALTER TABLE `payments` ADD COLUMN `enrollment_id` TEXT")
+                db.execSQL("ALTER TABLE `payments` ADD COLUMN `lesson_record_id` TEXT")
+
+                // students: пересоздание без subject/price_per_lesson/monthly_fee.
+                db.execSQL(
+                    """
+                    CREATE TABLE `students_new` (
+                        `id` TEXT NOT NULL,
+                        `user_id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `contact` TEXT,
+                        `active` INTEGER NOT NULL,
+                        `notes` TEXT,
+                        `created_at` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "INSERT INTO students_new " +
+                        "(id, user_id, name, contact, active, notes, created_at, updated_at) " +
+                        "SELECT id, user_id, name, contact, active, notes, created_at, updated_at " +
+                        "FROM students"
+                )
+                db.execSQL("DROP TABLE `students`")
+                db.execSQL("ALTER TABLE `students_new` RENAME TO `students`")
+            }
+        }
+
+        fun get(context: Context): AppDatabase =
+            instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "studedu.db",
+                )
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .build()
+                    .also { instance = it }
+            }
+    }
+}

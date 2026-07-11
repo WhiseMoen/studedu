@@ -64,7 +64,7 @@ data class LessonRecordEntity(
     @ColumnInfo(name = "created_at") val createdAt: Instant,
 )
 
-/** Леджер оплат: баланс = SUM(payment) − SUM(charge). */
+/** Леджер оплат: баланс = Σ платежей − Σ начислений. */
 @Entity(
     tableName = "payments",
     foreignKeys = [
@@ -81,4 +81,13 @@ data class PaymentEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "user_id") val userId: String,
     @ColumnInfo(name = "student_id") val studentId: String,
-    /** По какому предмету движение (для ст
+    /** По какому предмету движение (для статистики); null — общий. */
+    @ColumnInfo(name = "enrollment_id") val enrollmentId: String? = null,
+    /** Для charge: какое занятие породило начисление. */
+    @ColumnInfo(name = "lesson_record_id") val lessonRecordId: String? = null,
+    val amount: Double,
+    val direction: PaymentDirection,
+    val date: LocalDate,
+    val comment: String? = null,
+    @ColumnInfo(name = "created_at") val createdAt: Instant,
+)

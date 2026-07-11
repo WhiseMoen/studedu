@@ -363,4 +363,182 @@ private fun ScheduleCardView(card: ScheduleCard, now: Instant, onClick: () -> Un
                             Text(
                                 subtitle,
                                 style = MaterialTheme.typography.bodySmall,
-          
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                if (hasConflict) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Пересекается: ${card.conflictTitles.joinToString()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = ConflictRed,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyDay(group: String?) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "Свободный день",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            if (group == null) {
+                "Добавь событие кнопкой «+» или укажи группу вуза в настройках"
+            } else {
+                "Добавь событие кнопкой «+»"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun PersonalActionsDialog(
+    card: ScheduleCard.Personal,
+    onDismiss: () -> Unit,
+    onMarkDone: (() -> Unit)?,
+    onCancelOccurrence: () -> Unit,
+    onDeleteEvent: () -> Unit,
+) {
+    val isSeries = card.occurrence.originalStart != null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(card.occurrence.title) },
+        text = {
+            Text(
+                if (isSeries) "Это вхождение повторяющейся серии." else "Что сделать с событием?",
+            )
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                if (onMarkDone != null) {
+                    TextButton(onClick = onMarkDone) { Text("Проведено ✓") }
+                }
+                if (isSeries) {
+                    TextButton(onClick = onCancelOccurrence) { Text("Отменить это вхождение") }
+                }
+                TextButton(onClick = onDeleteEvent) {
+                    Text(
+                        if (isSeries) "Удалить всю серию" else "Удалить событие",
+                        color = ConflictRed,
+                    )
+                }
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                TextButton(onClick = onDismiss) { Text("Закрыть") }
+            }
+        },
+    )
+}
+
+@Composable
+private fun MarkDoneDialog(
+    card: ScheduleCard.Personal,
+    onDismiss: () -> Unit,
+    onConfirm: (amountOverride: Double?, topics: String?, homework: String?) -> Unit,
+) {
+    var amountText by remember { mutableStateOf("") }
+    var topics by remember { mutableStateOf("") }
+    var homework by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Проведено: ${card.title}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { text ->
+                        amountText = text.filter { it.isDigit() || it == '.' }.take(9)
+                    },
+                    label = { Text("Сумма, ₽ (пусто — по ставке)") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = topics,
+                    onValueChange = { topics = it },
+                    label = { Text("Пройденные темы") },
+                )
+                OutlinedTextField(
+                    value = homework,
+                    onValueChange = { homework = it },
+                    label = { Text("Домашнее задание") },
+                )
+                Text(
+                    "Начисление зафиксирует сумму: смена ставки потом не изменит эту запись. 0 — бесплатное занятие.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm(amountText.toDoubleOrNull(), topics, homework)
+            }) { Text("Сохранить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+@Composable
+private fun UniversityActionsDialog(
+    card: ScheduleCard.University,
+    onDismiss: () -> Unit,
+    onHide: (onlyThisType: Boolean, dim: Boolean) -> Unit,
+) {
+    val type = card.lesson.lessonType
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(card.lesson.subject) },
+        text = {
+            Text(
+                "«Не хожу» освобождает это время: пара перестаёт участвовать " +
+                    "в конфликтах, и на него можно ставить занятия.",
+            )
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = { onHide(false, false) }) {
+                    Text("Скрыть предмет полностью")
+                }
+                if (type != null) {
+                    TextButton(onClick = { onHide(true, false) }) {
+                        Text("Скрыть только «$type»")
+                    }
+                }
+                TextButton(onClick = { onHide(false, true) }) {
+                    Text("Показывать приглушённо")
+                }
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                TextButton(onClick = onDismiss) { Text("Закрыть") }
+            }
+        },
+    )
+}
+
+private fun formatDuration(duration: Duration): String {
+    val totalMinutes = duration.inWholeMinutes
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0 && minutes > 0 -> "$hours ч $minutes мин"
+        hours > 0 -> "$hours ч"
+        else -> "$minutes мин"
+    }
+}

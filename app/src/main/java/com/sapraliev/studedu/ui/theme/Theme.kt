@@ -54,4 +54,17 @@ fun StudeduTheme(
 object EventPalette {
     @Composable
     fun personal(darkTheme: Boolean = isSystemInDarkTheme()) =
-        if 
+        if (darkTheme) PersonalPastelDark else PersonalPastel
+
+    @Composable
+    fun lesson(darkTheme: Boolean = isSystemInDarkTheme()) =
+        if (darkTheme) LessonPastelDark else LessonPastel
+
+    @Composable
+    fun deadline(darkTheme: Boolean = isSystemInDarkTheme()) =
+        if (darkTheme) DeadlinePastelDark else DeadlinePastel
+
+    @Composable
+    fun university(darkTheme: Boolean = isSystemInDarkTheme()) =
+        if (darkTheme) UniversityPastelDark else UniversityPastel
+}

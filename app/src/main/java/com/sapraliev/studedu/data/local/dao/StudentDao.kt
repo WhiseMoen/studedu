@@ -70,4 +70,51 @@ interface StudentDao {
         FROM payments
         WHERE student_id = :studentId AND date BETWEEN :from AND :to
         """
-  
+    )
+    fun observeBalance(studentId: String, from: LocalDate, to: LocalDate): Flow<Double>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPayment(payment: PaymentEntity)
+
+    @Delete
+    suspend fun deletePayment(payment: PaymentEntity)
+
+    // ---------- статистика ----------
+
+    /** Полные балансы всех учеников одним запросом (для списка). */
+    @Query(
+        """
+        SELECT student_id, COALESCE(SUM(
+            CASE direction WHEN 'payment' THEN amount ELSE -amount END
+        ), 0) AS balance
+        FROM payments GROUP BY student_id
+        """
+    )
+    fun observeBalances(): Flow<List<StudentBalance>>
+
+    @Query(
+        """
+        SELECT * FROM lesson_records
+        WHERE student_id = :studentId AND date BETWEEN :from AND :to
+        ORDER BY date DESC
+        """
+    )
+    fun observeLessonRecordsBetween(
+        studentId: String,
+        from: LocalDate,
+        to: LocalDate,
+    ): Flow<List<LessonRecordEntity>>
+
+    @Query(
+        """
+        SELECT * FROM payments
+        WHERE student_id = :studentId AND date BETWEEN :from AND :to
+        ORDER BY date DESC
+        """
+    )
+    fun observePaymentsBetween(
+        studentId: String,
+        from: LocalDate,
+        to: LocalDate,
+    ): Flow<List<PaymentEntity>>
+}

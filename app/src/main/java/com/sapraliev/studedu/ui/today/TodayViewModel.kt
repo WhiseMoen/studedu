@@ -113,6 +113,7 @@ class TodayViewModel(
     private val selectedDate = MutableStateFlow(todayDate())
     private val mode = MutableStateFlow(ViewMode.DAY)
 
+    /** Минутный тикер: часы, линия «сейчас», «до события». */
     private val ticker = flow {
         while (true) {
             emit(Clock.System.now())
@@ -159,4 +160,213 @@ class TodayViewModel(
                     rulesFlow,
                     ticker,
                 ) { occurrences, lessons, rules, now ->
-                    val groupLessons = lessons.filter { group != null &&
+                    val groupLessons = lessons.filter { group != null && it.group == group }
+                    buildState(date, m, fromDate, dayCount, group, occurrences, groupLessons, rules, now)
+                }
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                TodayUiState(selectedDate = todayDate(), now = Clock.System.now()),
+            )
+
+    private fun buildState(
+        date: LocalDate,
+        mode: ViewMode,
+        fromDate: LocalDate,
+        dayCount: Int,
+        group: String?,
+        occurrences: List<Occurrence>,
+        lessons: List<UniversityScheduleCacheEntity>,
+        rules: List<com.sapraliev.studedu.data.local.entity.HiddenLessonRuleEntity>,
+        now: Instant,
+    ): TodayUiState {
+        // Видимость пар: HIDDEN выпадают совсем, DIMMED видны, но без конфликтов.
+        val visibleLessons = mutableListOf<UniversityScheduleCacheEntity>()
+        val dimmedLessons = mutableListOf<UniversityScheduleCacheEntity>()
+        for (lesson in lessons) {
+            when (visibilityFilter.visibilityFor(lesson.subject, lesson.lessonType, rules)) {
+                LessonVisibility.VISIBLE -> visibleLessons += lesson
+                LessonVisibility.DIMMED -> dimmedLessons += lesson
+                LessonVisibility.HIDDEN -> Unit
+            }
+        }
+
+        // Конфликты: личные (кроме «весь день») + видимые пары.
+        val participants: List<Any> =
+            occurrences.filter { !it.isAllDay } + visibleLessons
+        val conflicts = detector.findConflicts(participants, ::startOf, ::endOf)
+
+        fun titlesFor(item: Any): List<String> =
+            conflicts[item]?.map(::titleOf) ?: emptyList()
+
+        val cards: List<ScheduleCard> =
+            occurrences.map { ScheduleCard.Personal(it, titlesFor(it)) } +
+                visibleLessons.map { ScheduleCard.University(it, dimmed = false, titlesFor(it)) } +
+                dimmedLessons.map { ScheduleCard.University(it, dimmed = true, emptyList()) }
+
+        val days = (0 until dayCount).map { offset ->
+            val day = fromDate.plus(DatePeriod(days = offset))
+            DaySection(
+                date = day,
+                cards = cards
+                    .filter { it.start.toLocalDateTime(zone).date == day }
+                    .sortedBy { it.start },
+            )
+        }
+
+        val next = cards
+            .filter { it.start > now && !(it is ScheduleCard.University && it.dimmed) }
+            .minByOrNull { it.start }
+
+        return TodayUiState(
+            selectedDate = date,
+            mode = mode,
+            now = now,
+            days = days,
+            untilNext = next?.let { it.start - now },
+            nextTitle = next?.title,
+            universityGroup = group,
+        )
+    }
+
+    private fun startOf(item: Any): Instant = when (item) {
+        is Occurrence -> item.start
+        is UniversityScheduleCacheEntity -> item.startAt
+        else -> error("unknown item")
+    }
+
+    private fun endOf(item: Any): Instant = when (item) {
+        is Occurrence -> item.end
+        is UniversityScheduleCacheEntity -> item.endAt
+        else -> error("unknown item")
+    }
+
+    private fun titleOf(item: Any): String = when (item) {
+        is Occurrence -> item.title
+        is UniversityScheduleCacheEntity -> item.subject
+        else -> "?"
+    }
+
+    // ---------- действия ----------
+
+    fun setMode(newMode: ViewMode) {
+        mode.value = newMode
+    }
+
+    fun shiftDate(days: Int) {
+        selectedDate.value = selectedDate.value.plus(DatePeriod(days = days))
+    }
+
+    fun goToday() {
+        selectedDate.value = todayDate()
+    }
+
+    fun createEvent(
+        title: String,
+        comment: String?,
+        type: EventType,
+        start: Instant,
+        end: Instant,
+        recurrence: NewRecurrence?,
+        enrollment: EnrollmentOption? = null,
+    ) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            eventRepository.createEvent(
+                title = title,
+                comment = comment,
+                type = type,
+                start = start,
+                end = end,
+                recurrence = recurrence,
+                studentId = enrollment?.studentId,
+                enrollmentId = enrollment?.enrollmentId,
+            )
+        }
+    }
+
+    /**
+     * «Проведено»: запись занятия + начисление.
+     * [amountOverride] — скидка/пробное; null — по текущей ставке
+     * (для фикс-месяца поурочное начисление не делается).
+     */
+    fun markLessonDone(
+        card: ScheduleCard.Personal,
+        amountOverride: Double?,
+        topics: String?,
+        homework: String?,
+    ) {
+        val enrollmentId = card.occurrence.enrollmentId ?: return
+        viewModelScope.launch {
+            val enrollment = studentsRepository.getEnrollment(enrollmentId) ?: return@launch
+            val amount = amountOverride ?: when (enrollment.billingMode) {
+                com.sapraliev.studedu.data.local.entity.BillingMode.MONTHLY -> 0.0
+                else -> enrollment.pricePerLesson ?: 0.0
+            }
+            studentsRepository.markLessonDone(
+                studentId = enrollment.studentId,
+                enrollmentId = enrollment.id,
+                eventId = card.occurrence.eventId,
+                date = card.start.toLocalDateTime(zone).date,
+                chargeAmount = amount,
+                topics = topics?.takeIf { it.isNotBlank() },
+                homework = homework?.takeIf { it.isNotBlank() },
+            )
+        }
+    }
+
+    fun cancelOccurrence(card: ScheduleCard.Personal) {
+        val original = card.occurrence.originalStart ?: return
+        viewModelScope.launch {
+            eventRepository.cancelOccurrence(card.occurrence.eventId, original)
+        }
+    }
+
+    fun deleteEvent(card: ScheduleCard.Personal) {
+        viewModelScope.launch {
+            eventRepository.deleteEvent(card.occurrence.eventId)
+        }
+    }
+
+    /** «Не хожу»: скрыть предмет (или только тип) либо приглушить. */
+    fun hideLesson(card: ScheduleCard.University, onlyThisType: Boolean, dim: Boolean) {
+        val group = uiState.value.universityGroup ?: return
+        viewModelScope.launch {
+            scheduleRepository.hideLesson(
+                group = group,
+                subject = card.lesson.subject,
+                lessonType = if (onlyThisType) card.lesson.lessonType else null,
+                dim = dim,
+            )
+        }
+    }
+
+    private fun todayDate(): LocalDate =
+        Clock.System.now().toLocalDateTime(zone).date
+
+    private fun mondayOf(date: LocalDate): LocalDate =
+        date.minus(DatePeriod(days = date.dayOfWeek.ordinal))
+
+    companion object {
+        fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val app = context.applicationContext
+                val db = AppDatabase.get(app)
+                TodayViewModel(
+                    eventRepository = EventRepository(db.eventDao()),
+                    scheduleRepository = ScheduleRepository(
+                        provider = MospolytechProvider(),
+                        cacheDao = db.scheduleCacheDao(),
+                        hiddenLessonDao = db.hiddenLessonDao(),
+                    ),
+                    studentsRepository = StudentsRepository(
+                        db.studentDao(),
+                        db.enrollmentDao(),
+                    ),
+                    settings = AppSettings.get(app),
+                )
+            }
+        }
+    }
+}

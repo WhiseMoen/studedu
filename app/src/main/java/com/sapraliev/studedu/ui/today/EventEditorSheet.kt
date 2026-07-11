@@ -316,4 +316,40 @@ fun EventEditorSheet(
     if (timePickerFor != null) {
         val target = timePickerFor
         val timeState = rememberTimePickerState(
-            initialHour = if (target =
+            initialHour = if (target == "start") startHour else endHour,
+            initialMinute = if (target == "start") startMinute else endMinute,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { timePickerFor = null },
+            title = { Text(if (target == "start") "Начало" else "Конец") },
+            text = { TimePicker(state = timeState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (target == "start") {
+                        startHour = timeState.hour
+                        startMinute = timeState.minute
+                        // конец по умолчанию тянется за началом
+                        if (endHour < startHour || (endHour == startHour && endMinute <= startMinute)) {
+                            endHour = (startHour + 1).coerceAtMost(23)
+                            endMinute = startMinute
+                        }
+                    } else {
+                        endHour = timeState.hour
+                        endMinute = timeState.minute
+                    }
+                    timePickerFor = null
+                }) { Text("Ок") }
+            },
+            dismissButton = {
+                TextButton(onClick = { timePickerFor = null }) { Text("Отмена") }
+            },
+        )
+    }
+}
+
+private fun countOrNull(option: EndOption, text: String): Int? =
+    if (option == EndOption.COUNT) text.toIntOrNull()?.coerceIn(1, 500) else null
+
+private fun untilOrNull(option: EndOption, date: LocalDate): LocalDate? =
+    if (option == EndOption.UNTIL) date else null

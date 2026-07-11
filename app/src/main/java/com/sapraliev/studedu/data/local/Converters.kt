@@ -101,4 +101,12 @@ class Converters {
     @TypeConverter
     fun billingModeToString(value: BillingMode?): String? = value?.name?.lowercase()
 
-    @TypeConverte
+    @TypeConverter
+    fun stringToBillingMode(value: String?): BillingMode? =
+        value?.let { BillingMode.valueOf(it.uppercase()) }
+
+    private companion object {
+        /** U+001F (unit separator) — не встречается в обычном тексте. */
+        const val SEPARATOR = "\u001F"
+    }
+}
