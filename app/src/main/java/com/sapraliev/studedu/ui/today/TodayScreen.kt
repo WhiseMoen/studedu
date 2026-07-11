@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sapraliev.studedu.data.local.entity.EventType
-import com.sapraliev.studedu.domain.occurrence.Occurrence
 import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.EventPalette
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
@@ -68,7 +66,8 @@ fun TodayScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var editorOpen by remember { mutableStateOf(false) }
-    var actionItem by remember { mutableStateOf<TodayItem?>(null) }
+    var personalAction by remember { mutableStateOf<ScheduleCard.Personal?>(null) }
+    var universityAction by remember { mutableStateOf<ScheduleCard.University?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -107,14 +106,20 @@ fun TodayScreen(
                             )
                         }
                     }
-                    if (section.items.isEmpty() && state.mode == ViewMode.DAY) {
-                        item(key = "empty-${section.date}") { EmptyDay() }
+                    if (section.cards.isEmpty() && state.mode == ViewMode.DAY) {
+                        item(key = "empty-${section.date}") { EmptyDay(state.universityGroup) }
                     }
-                    items(
-                        section.items,
-                        key = { "${it.occurrence.eventId}-${it.occurrence.start}" },
-                    ) { item ->
-                        OccurrenceCard(item, state.now, onClick = { actionItem = item })
+                    items(section.cards, key = { it.key }) { card ->
+                        ScheduleCardView(
+                            card = card,
+                            now = state.now,
+                            onClick = {
+                                when (card) {
+                                    is ScheduleCard.Personal -> personalAction = card
+                                    is ScheduleCard.University -> universityAction = card
+                                }
+                            },
+                        )
                     }
                 }
                 item { Spacer(Modifier.height(80.dp)) }
@@ -133,17 +138,28 @@ fun TodayScreen(
         )
     }
 
-    actionItem?.let { item ->
-        OccurrenceActionsDialog(
-            item = item,
-            onDismiss = { actionItem = null },
+    personalAction?.let { card ->
+        PersonalActionsDialog(
+            card = card,
+            onDismiss = { personalAction = null },
             onCancelOccurrence = {
-                viewModel.cancelOccurrence(item)
-                actionItem = null
+                viewModel.cancelOccurrence(card)
+                personalAction = null
             },
             onDeleteEvent = {
-                viewModel.deleteEvent(item)
-                actionItem = null
+                viewModel.deleteEvent(card)
+                personalAction = null
+            },
+        )
+    }
+
+    universityAction?.let { card ->
+        UniversityActionsDialog(
+            card = card,
+            onDismiss = { universityAction = null },
+            onHide = { onlyThisType, dim ->
+                viewModel.hideLesson(card, onlyThisType, dim)
+                universityAction = null
             },
         )
     }
@@ -161,7 +177,6 @@ private fun TodayHeader(state: TodayUiState) {
             .padding(top = 20.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Часы — неоморфный акцент.
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.background,
@@ -228,27 +243,33 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
 }
 
 @Composable
-private fun OccurrenceCard(item: TodayItem, now: Instant, onClick: () -> Unit) {
+private fun ScheduleCardView(card: ScheduleCard, now: Instant, onClick: () -> Unit) {
     val zone = TimeZone.currentSystemDefault()
-    val occ = item.occurrence
-    val start = occ.start.toLocalDateTime(zone)
-    val end = occ.end.toLocalDateTime(zone)
-    val hasConflict = item.conflictTitles.isNotEmpty()
-    val isPast = occ.end < now
+    val start = card.start.toLocalDateTime(zone)
+    val end = card.end.toLocalDateTime(zone)
+    val hasConflict = card.conflictTitles.isNotEmpty()
+    val isPast = card.end < now
     val dark = isSystemInDarkTheme()
 
-    val cardColor = when (occ.type) {
-        EventType.PERSONAL -> EventPalette.personal(dark)
-        EventType.LESSON -> EventPalette.lesson(dark)
-        EventType.DEADLINE -> EventPalette.deadline(dark)
+    val dimmed = card is ScheduleCard.University && card.dimmed
+    val baseColor = when (card) {
+        is ScheduleCard.University -> EventPalette.university(dark)
+        is ScheduleCard.Personal -> when (card.occurrence.type) {
+            EventType.PERSONAL -> EventPalette.personal(dark)
+            EventType.LESSON -> EventPalette.lesson(dark)
+            EventType.DEADLINE -> EventPalette.deadline(dark)
+        }
+    }
+    val cardColor = when {
+        dimmed -> baseColor.copy(alpha = 0.35f)
+        isPast -> baseColor.copy(alpha = 0.45f)
+        else -> baseColor
     }
 
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isPast) cardColor.copy(alpha = 0.45f) else cardColor,
-        ),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
         border = if (hasConflict) BorderStroke(2.dp, ConflictRed) else null,
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -279,11 +300,11 @@ private fun OccurrenceCard(item: TodayItem, now: Instant, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        occ.title,
+                        card.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    if (occ.isMoved) {
+                    if (card is ScheduleCard.Personal && card.occurrence.isMoved) {
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "перенесено",
@@ -291,18 +312,43 @@ private fun OccurrenceCard(item: TodayItem, now: Instant, onClick: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    if (dimmed) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "не хожу",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                occ.comment?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                when (card) {
+                    is ScheduleCard.Personal -> card.occurrence.comment?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    is ScheduleCard.University -> {
+                        val subtitle = listOfNotNull(
+                            card.lesson.lessonType,
+                            card.lesson.place,
+                            card.lesson.teacher,
+                        ).joinToString(" · ")
+                        if (subtitle.isNotEmpty()) {
+                            Text(
+                                subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
                 if (hasConflict) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Пересекается: ${item.conflictTitles.joinToString()}",
+                        "Пересекается: ${card.conflictTitles.joinToString()}",
                         style = MaterialTheme.typography.labelMedium,
                         color = ConflictRed,
                         fontWeight = FontWeight.SemiBold,
@@ -314,71 +360,11 @@ private fun OccurrenceCard(item: TodayItem, now: Instant, onClick: () -> Unit) {
 }
 
 @Composable
-private fun EmptyDay() {
+private fun EmptyDay(group: String?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            "Свободный день",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            "Добавь событие кнопкой «+»",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun OccurrenceActionsDialog(
-    item: TodayItem,
-    onDismiss: () -> Unit,
-    onCancelOccurrence: () -> Unit,
-    onDeleteEvent: () -> Unit,
-) {
-    val isSeries = item.occurrence.originalStart != null
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(item.occurrence.title) },
-        text = {
-            Column {
-                if (isSeries) {
-                    Text("Это вхождение повторяющейся серии.")
-                } else {
-                    Text("Что сделать с событием?")
-                }
-            }
-        },
-        confirmButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                if (isSeries) {
-                    TextButton(onClick = onCancelOccurrence) { Text("Отменить это вхождение") }
-                }
-                TextButton(onClick = onDeleteEvent) {
-                    Text(
-                        if (isSeries) "Удалить всю серию" else "Удалить событие",
-                        color = ConflictRed,
-                    )
-                }
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                TextButton(onClick = onDismiss) { Text("Закрыть") }
-            }
-        },
-    )
-}
-
-private fun formatDuration(duration: Duration): String {
-    val totalMinutes = duration.inWholeMinutes
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return when {
-        hours > 0 && minutes > 0 -> "$hours ч $minutes мин"
-        hours > 0 -> "$hours ч"
-        else -> "$minutes мин"
-    }
-}
+       
