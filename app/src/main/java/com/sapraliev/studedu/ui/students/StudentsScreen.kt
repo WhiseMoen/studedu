@@ -1,0 +1,565 @@
+package com.sapraliev.studedu.ui.students
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sapraliev.studedu.data.local.entity.BillingMode
+import com.sapraliev.studedu.ui.theme.ConflictRed
+import com.sapraliev.studedu.ui.theme.LocalNeuShadows
+import com.sapraliev.studedu.ui.theme.neumorphic
+import com.sapraliev.studedu.ui.util.RussianDates
+
+@Composable
+fun StudentsScreen(
+    viewModel: StudentsViewModel = viewModel(
+        factory = StudentsViewModel.factory(LocalContext.current),
+    ),
+) {
+    val state by viewModel.uiState.collectAsState()
+    var addStudentOpen by remember { mutableStateOf(false) }
+
+    val detail = state.detail
+    if (detail != null) {
+        BackHandler { viewModel.closeStudent() }
+        StudentDetail(detail, viewModel)
+    } else {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = { addStudentOpen = true },
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Добавить ученика")
+                }
+            },
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item {
+                    Text(
+                        "Ученики",
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
+                    )
+                }
+                if (state.students.isEmpty()) {
+                    item {
+                        Text(
+                            "Добавь первого ученика кнопкой «+». Предметы, ставки и оплаты — всё будет здесь.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 24.dp),
+                        )
+                    }
+                }
+                items(state.students, key = { it.student.id }) { overview ->
+                    Card(
+                        onClick = { viewModel.openStudent(overview.student.id) },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    overview.student.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                val subjects = overview.enrollments.joinToString(" · ") { e ->
+                                    e.pricePerLesson?.let { "${e.subject} ${formatMoney(it)}" }
+                                        ?: e.subject
+                                }
+                                if (subjects.isNotEmpty()) {
+                                    Text(
+                                        subjects,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            BalanceText(overview.balance)
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(80.dp)) }
+            }
+        }
+    }
+
+    if (addStudentOpen) {
+        StudentEditorDialog(
+            title = "Новый ученик",
+            askName = true,
+            onDismiss = { addStudentOpen = false },
+            onSave = { name, contact, subject, price, mode, fee ->
+                viewModel.addStudent(name, contact, subject, price, mode, fee)
+                addStudentOpen = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewModel) {
+    var paymentOpen by remember { mutableStateOf(false) }
+    var enrollmentOpen by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                IconButton(onClick = { viewModel.closeStudent() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                }
+                Column {
+                    Text(
+                        detail.student.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    detail.student.contact?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Баланс",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        formatMoney(detail.balance),
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            detail.balance < 0 -> ConflictRed
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                    )
+                    detail.prepaidLessons?.let {
+                        Text(
+                            "≈ $it занятий предоплачено",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (detail.balance < 0) {
+                        Text(
+                            "долг",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ConflictRed,
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { paymentOpen = true }) { Text("Платёж +") }
+                        OutlinedButton(onClick = { enrollmentOpen = true }) { Text("Предмет +") }
+                    }
+                }
+            }
+        }
+
+        item {
+            val summary = detail.summary
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { viewModel.shiftMonth(1) }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Раньше")
+                        }
+                        Text(
+                            monthTitle(summary.monthStart),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        IconButton(onClick = { viewModel.shiftMonth(-1) }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Позже")
+                        }
+                    }
+                    Text("Занятий: ${summary.lessonsTotal}")
+                    summary.lessonsBySubject.forEach { (subject, count) ->
+                        Text(
+                            "  · $subject — $count",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Начислено: ${formatMoney(summary.charged)}")
+                    Text("Получено: ${formatMoney(summary.paid)}")
+                }
+            }
+        }
+
+        item {
+            Text(
+                "История",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+
+        if (detail.summary.history.isEmpty()) {
+            item {
+                Text(
+                    "В этом месяце пусто",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        items(detail.summary.history.size) { index ->
+            val item = detail.summary.history[index]
+            HistoryRow(item)
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+        }
+
+        item { Spacer(Modifier.height(40.dp)) }
+    }
+
+    if (paymentOpen) {
+        PaymentDialog(
+            onDismiss = { paymentOpen = false },
+            onSave = { amount, comment ->
+                viewModel.addPayment(amount, comment)
+                paymentOpen = false
+            },
+        )
+    }
+    if (enrollmentOpen) {
+        StudentEditorDialog(
+            title = "Новый предмет",
+            askName = false,
+            onDismiss = { enrollmentOpen = false },
+            onSave = { _, _, subject, price, mode, fee ->
+                viewModel.addEnrollment(subject, price, mode, fee)
+                enrollmentOpen = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun HistoryRow(item: HistoryItem) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            when (item) {
+                is HistoryItem.Lesson -> {
+                    Text(
+                        "${RussianDates.dayMonth(item.date)} — занятие · ${item.subject}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    item.topics?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            "темы: $it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    item.homework?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            "дз: $it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                is HistoryItem.Money -> {
+                    val kind = if (item.isIncome) "платёж" else "начислено"
+                    val subject = item.subject?.let { " · $it" } ?: ""
+                    Text(
+                        "${RussianDates.dayMonth(item.date)} — $kind$subject",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    item.comment?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        if (item is HistoryItem.Money) {
+            Text(
+                (if (item.isIncome) "+" else "−") + formatMoney(item.amount),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = if (item.isIncome) {
+                    MaterialTheme.colorScheme.tertiary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BalanceText(balance: Double) {
+    Text(
+        formatMoney(balance),
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = when {
+            balance < 0 -> ConflictRed
+            balance > 0 -> MaterialTheme.colorScheme.tertiary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
+}
+
+/** Диалог создания ученика (askName) или добавления предмета. */
+@Composable
+private fun StudentEditorDialog(
+    title: String,
+    askName: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (
+        name: String,
+        contact: String?,
+        subject: String,
+        price: Double?,
+        mode: BillingMode,
+        monthlyFee: Double?,
+    ) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var contact by remember { mutableStateOf("") }
+    var subject by remember { mutableStateOf("") }
+    var priceText by remember { mutableStateOf("") }
+    var mode by remember { mutableStateOf(BillingMode.PER_LESSON) }
+    var feeText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (askName) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Имя") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = contact,
+                        onValueChange = { contact = it },
+                        label = { Text("Контакт (телефон/tg)") },
+                        singleLine = true,
+                    )
+                }
+                OutlinedTextField(
+                    value = subject,
+                    onValueChange = { subject = it },
+                    label = { Text("Предмет") },
+                    singleLine = true,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = mode == BillingMode.PER_LESSON,
+                        onClick = { mode = BillingMode.PER_LESSON },
+                        label = { Text("Поурочно") },
+                    )
+                    FilterChip(
+                        selected = mode == BillingMode.PACKAGE,
+                        onClick = { mode = BillingMode.PACKAGE },
+                        label = { Text("Пакет") },
+                    )
+                    FilterChip(
+                        selected = mode == BillingMode.MONTHLY,
+                        onClick = { mode = BillingMode.MONTHLY },
+                        label = { Text("Фикс/мес") },
+                    )
+                }
+                if (mode == BillingMode.MONTHLY) {
+                    OutlinedTextField(
+                        value = feeText,
+                        onValueChange = { feeText = it.filterMoney() },
+                        label = { Text("Сумма в месяц, ₽") },
+                        singleLine = true,
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = priceText,
+                        onValueChange = { priceText = it.filterMoney() },
+                        label = { Text("Ставка за занятие, ₽") },
+                        singleLine = true,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (subject.isBlank() || (askName && name.isBlank())) return@TextButton
+                    onSave(
+                        name,
+                        contact.takeIf { it.isNotBlank() },
+                        subject,
+                        priceText.toDoubleOrNull(),
+                        mode,
+                        feeText.toDoubleOrNull(),
+                    )
+                },
+            ) { Text("Сохранить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+@Composable
+private fun PaymentDialog(
+    onDismiss: () -> Unit,
+    onSave: (amount: Double, comment: String?) -> Unit,
+) {
+    var amountText by remember { mutableStateOf("") }
+    var comment by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Платёж от ученика") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it.filterMoney() },
+                    label = { Text("Сумма, ₽") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Комментарий") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val amount = amountText.toDoubleOrNull() ?: return@TextButton
+                    if (amount > 0) onSave(amount, comment.takeIf { it.isNotBlank() })
+                },
+            ) { Text("Сохранить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+private fun String.filterMoney(): String =
+    filter { it.isDigit() || it == '.' }.take(9)
+
+private fun formatMoney(amount: Double): String {
+    val rounded = if (amount == amount.toLong().toDouble()) {
+        amount.toLong().toString()
+    } else {
+        "%.2f".format(amount)
+    }
+    return "$rounded ₽"
+}
+
+private fun monthTitle(monthStart: kotlinx.datetime.LocalDate): String {
+    val months = listOf(
+        "январь", "февраль", "март", "апрель", "май", "июнь",
+        "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+    )
+    return "${months[monthStart.monthNumber - 1]} ${monthStart.year}"
+}

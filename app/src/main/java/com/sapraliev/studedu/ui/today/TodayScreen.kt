@@ -30,6 +30,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,9 +66,11 @@ fun TodayScreen(
     ),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val enrollmentOptions by viewModel.enrollmentOptions.collectAsState()
     var editorOpen by remember { mutableStateOf(false) }
     var personalAction by remember { mutableStateOf<ScheduleCard.Personal?>(null) }
     var universityAction by remember { mutableStateOf<ScheduleCard.University?>(null) }
+    var markDoneCard by remember { mutableStateOf<ScheduleCard.Personal?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -130,9 +133,10 @@ fun TodayScreen(
     if (editorOpen) {
         EventEditorSheet(
             initialDate = state.selectedDate,
+            enrollmentOptions = enrollmentOptions,
             onDismiss = { editorOpen = false },
-            onSave = { title, comment, type, start, end, recurrence ->
-                viewModel.createEvent(title, comment, type, start, end, recurrence)
+            onSave = { title, comment, type, start, end, recurrence, enrollment ->
+                viewModel.createEvent(title, comment, type, start, end, recurrence, enrollment)
                 editorOpen = false
             },
         )
@@ -142,6 +146,14 @@ fun TodayScreen(
         PersonalActionsDialog(
             card = card,
             onDismiss = { personalAction = null },
+            onMarkDone = if (card.occurrence.enrollmentId != null) {
+                {
+                    markDoneCard = card
+                    personalAction = null
+                }
+            } else {
+                null
+            },
             onCancelOccurrence = {
                 viewModel.cancelOccurrence(card)
                 personalAction = null
@@ -149,6 +161,17 @@ fun TodayScreen(
             onDeleteEvent = {
                 viewModel.deleteEvent(card)
                 personalAction = null
+            },
+        )
+    }
+
+    markDoneCard?.let { card ->
+        MarkDoneDialog(
+            card = card,
+            onDismiss = { markDoneCard = null },
+            onConfirm = { amount, topics, homework ->
+                viewModel.markLessonDone(card, amount, topics, homework)
+                markDoneCard = null
             },
         )
     }
@@ -340,31 +363,4 @@ private fun ScheduleCardView(card: ScheduleCard, now: Instant, onClick: () -> Un
                             Text(
                                 subtitle,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-                if (hasConflict) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Пересекается: ${card.conflictTitles.joinToString()}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = ConflictRed,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyDay(group: String?) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-       
+          

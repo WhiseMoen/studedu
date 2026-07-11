@@ -74,6 +74,8 @@ data class EventEntity(
     @ColumnInfo(name = "end_at") val endAt: Instant,
     @ColumnInfo(name = "is_all_day") val isAllDay: Boolean = false,
     @ColumnInfo(name = "student_id") val studentId: String? = null,
+    /** Для занятий: связка «ученик × предмет» (без FK — колонка добавлена миграцией). */
+    @ColumnInfo(name = "enrollment_id") val enrollmentId: String? = null,
     @ColumnInfo(name = "recurrence_rule_id") val recurrenceRuleId: String? = null,
     val color: String? = null,
     val source: String? = null,
@@ -100,8 +102,4 @@ data class RecurrenceExceptionEntity(
     @ColumnInfo(name = "event_id") val eventId: String,
     /** Какое вхождение серии затронуто (его исходный старт). */
     @ColumnInfo(name = "original_date") val originalDate: Instant,
-    val type: ExceptionType,
-    @ColumnInfo(name = "new_start_at") val newStartAt: Instant? = null,
-    @ColumnInfo(name = "new_end_at") val newEndAt: Instant? = null,
-    @ColumnInfo(name = "created_at") val createdAt: Instant,
-)
+    va

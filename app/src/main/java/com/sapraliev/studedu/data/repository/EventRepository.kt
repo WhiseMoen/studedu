@@ -59,6 +59,8 @@ class EventRepository(
         start: Instant,
         end: Instant,
         recurrence: NewRecurrence? = null,
+        studentId: String? = null,
+        enrollmentId: String? = null,
     ) {
         val now = Clock.System.now()
         val eventId = UUID.randomUUID().toString()
@@ -71,7 +73,8 @@ class EventRepository(
             startAt = start,
             endAt = end,
             isAllDay = false,
-            studentId = null,
+            studentId = studentId,
+            enrollmentId = enrollmentId,
             recurrenceRuleId = null,
             color = null,
             source = null,
@@ -141,9 +144,4 @@ class EventRepository(
     companion object {
         /**
          * До появления авторизации (Этап 5) все строки принадлежат
-         * локальному пользователю; при первом входе синк проставит
-         * реальный uuid из Supabase Auth.
-         */
-        const val LOCAL_USER_ID = "local"
-    }
-}
+         * локальному пользователю; при первом входе синк простав�

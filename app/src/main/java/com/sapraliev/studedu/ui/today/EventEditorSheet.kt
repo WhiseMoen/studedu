@@ -72,6 +72,7 @@ private val weekdayCodes = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")
 @Composable
 fun EventEditorSheet(
     initialDate: LocalDate,
+    enrollmentOptions: List<EnrollmentOption>,
     onDismiss: () -> Unit,
     onSave: (
         title: String,
@@ -80,6 +81,7 @@ fun EventEditorSheet(
         start: Instant,
         end: Instant,
         recurrence: NewRecurrence?,
+        enrollment: EnrollmentOption?,
     ) -> Unit,
 ) {
     val zone = TimeZone.currentSystemDefault()
@@ -94,6 +96,7 @@ fun EventEditorSheet(
     var endHour by remember { mutableStateOf(11) }
     var endMinute by remember { mutableStateOf(0) }
 
+    var selectedEnrollment by remember { mutableStateOf<EnrollmentOption?>(null) }
     var repeat by remember { mutableStateOf(RepeatOption.NONE) }
     var weekdays by remember { mutableStateOf(setOf(initialDate.dayOfWeek.ordinal)) }
     var endOption by remember { mutableStateOf(EndOption.NEVER) }
@@ -145,6 +148,29 @@ fun EventEditorSheet(
                     onClick = { type = EventType.DEADLINE },
                     label = { Text("Дедлайн") },
                 )
+            }
+
+            if (type == EventType.LESSON) {
+                Text("Ученик и предмет", style = MaterialTheme.typography.labelLarge)
+                if (enrollmentOptions.isEmpty()) {
+                    Text(
+                        "Сначала добавь ученика на вкладке «Ученики» — тогда занятие привяжется к оплатам.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        enrollmentOptions.forEach { option ->
+                            FilterChip(
+                                selected = selectedEnrollment?.enrollmentId == option.enrollmentId,
+                                onClick = {
+                                    selectedEnrollment = option
+                                    if (title.isBlank()) title = option.label
+                                },
+                                label = { Text(option.label) },
+                            )
+                        }
+                    }
+                }
             }
 
             Text("Когда", style = MaterialTheme.typography.labelLarge)
@@ -243,7 +269,15 @@ fun EventEditorSheet(
                             until = untilOrNull(endOption, untilDate),
                         )
                     }
-                    onSave(title, comment.takeIf { it.isNotBlank() }, type, start, end, recurrence)
+                    onSave(
+                        title,
+                        comment.takeIf { it.isNotBlank() },
+                        type,
+                        start,
+                        end,
+                        recurrence,
+                        if (type == EventType.LESSON) selectedEnrollment else null,
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -282,40 +316,4 @@ fun EventEditorSheet(
     if (timePickerFor != null) {
         val target = timePickerFor
         val timeState = rememberTimePickerState(
-            initialHour = if (target == "start") startHour else endHour,
-            initialMinute = if (target == "start") startMinute else endMinute,
-            is24Hour = true,
-        )
-        AlertDialog(
-            onDismissRequest = { timePickerFor = null },
-            title = { Text(if (target == "start") "Начало" else "Конец") },
-            text = { TimePicker(state = timeState) },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (target == "start") {
-                        startHour = timeState.hour
-                        startMinute = timeState.minute
-                        // конец по умолчанию тянется за началом
-                        if (endHour < startHour || (endHour == startHour && endMinute <= startMinute)) {
-                            endHour = (startHour + 1).coerceAtMost(23)
-                            endMinute = startMinute
-                        }
-                    } else {
-                        endHour = timeState.hour
-                        endMinute = timeState.minute
-                    }
-                    timePickerFor = null
-                }) { Text("Ок") }
-            },
-            dismissButton = {
-                TextButton(onClick = { timePickerFor = null }) { Text("Отмена") }
-            },
-        )
-    }
-}
-
-private fun countOrNull(option: EndOption, text: String): Int? =
-    if (option == EndOption.COUNT) text.toIntOrNull()?.coerceIn(1, 500) else null
-
-private fun untilOrNull(option: EndOption, date: LocalDate): LocalDate? =
-    if (option == EndOption.UNTIL) date else null
+            initialHour = if (target =

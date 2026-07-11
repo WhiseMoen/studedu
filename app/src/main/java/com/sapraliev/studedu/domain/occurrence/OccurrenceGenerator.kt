@@ -121,6 +121,7 @@ class OccurrenceGenerator(
         end = end,
         isAllDay = isAllDay,
         studentId = studentId,
+        enrollmentId = enrollmentId,
         color = color,
         isMoved = isMoved,
         originalStart = originalStart,
@@ -128,6 +129,4 @@ class OccurrenceGenerator(
 
     private companion object {
         /** Предохранитель от вечного цикла на некорректном правиле. */
-        const val MAX_ITERATIONS = 1000
-    }
-}
+        con

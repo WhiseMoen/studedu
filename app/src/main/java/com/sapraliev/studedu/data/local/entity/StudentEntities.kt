@@ -16,6 +16,7 @@ enum class PaymentDirection {
     PAYMENT,
 }
 
+/** Ученик. Предметы и ставки живут в enrollments (ученик × предмет). */
 @Entity(tableName = "students")
 data class StudentEntity(
     @PrimaryKey val id: String,
@@ -23,9 +24,6 @@ data class StudentEntity(
     val name: String,
     /** Телефон / телеграм. */
     val contact: String? = null,
-    val subject: String? = null,
-    @ColumnInfo(name = "price_per_lesson") val pricePerLesson: Double? = null,
-    @ColumnInfo(name = "monthly_fee") val monthlyFee: Double? = null,
     val active: Boolean = true,
     val notes: String? = null,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
@@ -55,6 +53,8 @@ data class LessonRecordEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "user_id") val userId: String,
     @ColumnInfo(name = "student_id") val studentId: String,
+    /** Какой предмет (enrollment): для статистики по предметам. */
+    @ColumnInfo(name = "enrollment_id") val enrollmentId: String? = null,
     /** Привязка к событию в расписании (опционально). */
     @ColumnInfo(name = "event_id") val eventId: String? = null,
     val date: LocalDate,
@@ -81,9 +81,4 @@ data class PaymentEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "user_id") val userId: String,
     @ColumnInfo(name = "student_id") val studentId: String,
-    val amount: Double,
-    val direction: PaymentDirection,
-    val date: LocalDate,
-    val comment: String? = null,
-    @ColumnInfo(name = "created_at") val createdAt: Instant,
-)
+    /** По какому предмету движение (для ст

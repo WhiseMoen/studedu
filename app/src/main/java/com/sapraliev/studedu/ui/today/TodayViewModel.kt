@@ -12,6 +12,7 @@ import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
 import com.sapraliev.studedu.data.repository.EventRepository
 import com.sapraliev.studedu.data.repository.NewRecurrence
 import com.sapraliev.studedu.data.repository.ScheduleRepository
+import com.sapraliev.studedu.data.repository.StudentsRepository
 import com.sapraliev.studedu.data.schedule.MospolytechProvider
 import com.sapraliev.studedu.data.settings.AppSettings
 import com.sapraliev.studedu.domain.conflict.ConflictDetector
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
@@ -88,10 +90,19 @@ data class TodayUiState(
     val universityGroup: String? = null,
 )
 
+/** Вариант «ученик × предмет» для привязки занятия. */
+data class EnrollmentOption(
+    val enrollmentId: String,
+    val studentId: String,
+    val label: String,
+    val pricePerLesson: Double?,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class TodayViewModel(
     private val eventRepository: EventRepository,
     private val scheduleRepository: ScheduleRepository,
+    private val studentsRepository: StudentsRepository,
     private val settings: AppSettings,
 ) : ViewModel() {
 
@@ -108,6 +119,23 @@ class TodayViewModel(
             delay(60_000)
         }
     }
+
+    /** Опции «ученик — предмет» для формы создания занятия. */
+    val enrollmentOptions: StateFlow<List<EnrollmentOption>> =
+        studentsRepository.observeOverview()
+            .map { overviews ->
+                overviews.flatMap { overview ->
+                    overview.enrollments.map { enrollment ->
+                        EnrollmentOption(
+                            enrollmentId = enrollment.id,
+                            studentId = overview.student.id,
+                            label = "${overview.student.name} — ${enrollment.subject}",
+                            pricePerLesson = enrollment.pricePerLesson,
+                        )
+                    }
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val uiState: StateFlow<TodayUiState> =
         combine(selectedDate, mode, settings.universityGroup) { date, m, group ->
@@ -131,31 +159,4 @@ class TodayViewModel(
                     rulesFlow,
                     ticker,
                 ) { occurrences, lessons, rules, now ->
-                    val groupLessons = lessons.filter { group != null && it.group == group }
-                    buildState(date, m, fromDate, dayCount, group, occurrences, groupLessons, rules, now)
-                }
-            }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5_000),
-                TodayUiState(selectedDate = todayDate(), now = Clock.System.now()),
-            )
-
-    private fun buildState(
-        date: LocalDate,
-        mode: ViewMode,
-        fromDate: LocalDate,
-        dayCount: Int,
-        group: String?,
-        occurrences: List<Occurrence>,
-        lessons: List<UniversityScheduleCacheEntity>,
-        rules: List<com.sapraliev.studedu.data.local.entity.HiddenLessonRuleEntity>,
-        now: Instant,
-    ): TodayUiState {
-        // Видимость пар: HIDDEN выпадают совсем, DIMMED видны, но без конфликтов.
-        val visibleLessons = mutableListOf<UniversityScheduleCacheEntity>()
-        val dimmedLessons = mutableListOf<UniversityScheduleCacheEntity>()
-        for (lesson in lessons) {
-            when (visibilityFilter.visibilityFor(lesson.subject, lesson.lessonType, rules)) {
-                LessonVisibility.VISIBLE -> visibleLessons += lesson
-                LessonVisibil
+                    val groupLessons = lessons.filter { group != null &&

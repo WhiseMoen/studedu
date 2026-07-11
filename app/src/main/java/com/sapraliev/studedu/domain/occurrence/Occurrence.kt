@@ -16,6 +16,7 @@ data class Occurrence(
     val end: Instant,
     val isAllDay: Boolean,
     val studentId: String?,
+    val enrollmentId: String?,
     val color: String?,
     /** Вхождение перенесено исключением (recurrence_exceptions.moved). */
     val isMoved: Boolean = false,
@@ -23,5 +24,4 @@ data class Occurrence(
      * Исходный старт вхождения в серии — ключ для создания исключения
      * («изменить только это вхождение»). Для одиночных событий null.
      */
-    val originalStart: Instant? = null,
-)
+    val ori

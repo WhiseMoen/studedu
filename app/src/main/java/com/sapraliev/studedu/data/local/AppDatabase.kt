@@ -7,11 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.sapraliev.studedu.data.local.dao.EnrollmentDao
 import com.sapraliev.studedu.data.local.dao.EventDao
 import com.sapraliev.studedu.data.local.dao.HiddenLessonDao
 import com.sapraliev.studedu.data.local.dao.ScheduleCacheDao
 import com.sapraliev.studedu.data.local.dao.StudentDao
 import com.sapraliev.studedu.data.local.dao.TaskDao
+import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
 import com.sapraliev.studedu.data.local.entity.EventEntity
 import com.sapraliev.studedu.data.local.entity.HiddenLessonRuleEntity
 import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
@@ -37,8 +39,9 @@ import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
         TaskEntity::class,
         UniversityScheduleCacheEntity::class,
         HiddenLessonRuleEntity::class,
+        EnrollmentEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -49,6 +52,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun scheduleCacheDao(): ScheduleCacheDao
     abstract fun hiddenLessonDao(): HiddenLessonDao
+    abstract fun enrollmentDao(): EnrollmentDao
 
     companion object {
         @Volatile
@@ -79,16 +83,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        fun get(context: Context): AppDatabase =
-            instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "studedu.db",
-                )
-                    .addMigrations(MIGRATION_1_2)
-                    .build()
-                    .also { instance = it }
-            }
-    }
-}
+        /**
+         * v2 → v3: enrollments (ученик × предмет), enrollment_id в events /
+         * lesson_records / payments, lesson_record_id в payments;
+         * из students уходят subject и став

@@ -1,6 +1,7 @@
 package com.sapraliev.studedu.data.local
 
 import androidx.room.TypeConverter
+import com.sapraliev.studedu.data.local.entity.BillingMode
 import com.sapraliev.studedu.data.local.entity.EventType
 import com.sapraliev.studedu.data.local.entity.ExceptionType
 import com.sapraliev.studedu.data.local.entity.HiddenLessonMode
@@ -97,8 +98,7 @@ class Converters {
     fun stringToHiddenLessonMode(value: String?): HiddenLessonMode? =
         value?.let { HiddenLessonMode.valueOf(it.uppercase()) }
 
-    private companion object {
-        /** U+001F (unit separator) — не встречается в обычном тексте. */
-        const val SEPARATOR = "\u001F"
-    }
-}
+    @TypeConverter
+    fun billingModeToString(value: BillingMode?): String? = value?.name?.lowercase()
+
+    @TypeConverte

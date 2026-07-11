@@ -1,5 +1,6 @@
 package com.sapraliev.studedu.data.local.dao
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -10,6 +11,12 @@ import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
+
+/** Проекция «ученик → полный баланс» (Σ платежей − Σ начислений). */
+data class StudentBalance(
+    @ColumnInfo(name = "student_id") val studentId: String,
+    val balance: Double,
+)
 
 @Dao
 interface StudentDao {
@@ -63,12 +70,4 @@ interface StudentDao {
         FROM payments
         WHERE student_id = :studentId AND date BETWEEN :from AND :to
         """
-    )
-    fun observeBalance(studentId: String, from: LocalDate, to: LocalDate): Flow<Double>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertPayment(payment: PaymentEntity)
-
-    @Delete
-    suspend fun deletePayment(payment: PaymentEntity)
-}
+  
