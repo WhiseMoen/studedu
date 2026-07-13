@@ -2,11 +2,6 @@ package com.sapraliev.studedu.ui.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.EventNote
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Today
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -28,6 +23,11 @@ import com.sapraliev.studedu.ui.settings.SettingsScreen
 import com.sapraliev.studedu.ui.tasks.TasksScreen
 import com.sapraliev.studedu.ui.students.StudentsScreen
 import com.sapraliev.studedu.ui.today.TodayScreen
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.Calendar
+import compose.icons.feathericons.CheckSquare
+import compose.icons.feathericons.Settings
+import compose.icons.feathericons.Users
 
 /** Четыре вкладки нижней навигации. */
 enum class AppTab(
@@ -35,10 +35,10 @@ enum class AppTab(
     @StringRes val labelRes: Int,
     val icon: ImageVector,
 ) {
-    TODAY("today", R.string.tab_today, Icons.Filled.Today),
-    TASKS("tasks", R.string.tab_notes, Icons.AutoMirrored.Filled.EventNote),
-    STUDENTS("students", R.string.tab_students, Icons.Filled.People),
-    SETTINGS("settings", R.string.tab_settings, Icons.Filled.Settings),
+    TODAY("today", R.string.tab_today, FeatherIcons.Calendar),
+    TASKS("tasks", R.string.tab_notes, FeatherIcons.CheckSquare),
+    STUDENTS("students", R.string.tab_students, FeatherIcons.Users),
+    SETTINGS("settings", R.string.tab_settings, FeatherIcons.Settings),
 }
 
 @Composable

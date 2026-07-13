@@ -20,8 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -59,6 +57,9 @@ import com.sapraliev.studedu.ui.theme.EventPalette
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ArrowLeft
+import compose.icons.feathericons.ArrowRight
 import kotlin.time.Duration
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -285,11 +286,11 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
         )
         Spacer(Modifier.weight(1f))
         IconButton(onClick = { viewModel.shiftDate(-1) }) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+            Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
         }
         TextButton(onClick = { viewModel.goToday() }) { Text("Сегодня") }
         IconButton(onClick = { viewModel.shiftDate(1) }) {
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Вперёд")
+            Icon(FeatherIcons.ArrowRight, contentDescription = "Вперёд")
         }
     }
 }
