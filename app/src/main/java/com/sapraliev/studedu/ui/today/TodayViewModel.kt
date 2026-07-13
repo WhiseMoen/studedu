@@ -137,7 +137,20 @@ class TodayViewModel(
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val uiState: StateFlow<TodayUiState> =
+    /**
+     * Тяжёлая часть (генерация вхождений, видимость пар, детектор конфликтов)
+     * зависит только от диапазона дат и данных репозиториев — не от `now`.
+     * Отдельный StateFlow, чтобы минутный тикер не пересчитывал конфликты.
+     */
+    private data class TodayContent(
+        val date: LocalDate,
+        val mode: ViewMode,
+        val group: String?,
+        val days: List<DaySection>,
+        val cards: List<ScheduleCard>,
+    )
+
+    private val content: StateFlow<TodayContent> =
         combine(selectedDate, mode, settings.universityGroup) { date, m, group ->
             Triple(date, m, group)
         }
@@ -165,19 +178,26 @@ class TodayViewModel(
                     eventRepository.observeOccurrences(from, to),
                     scheduleRepository.observeLessons(from, to),
                     rulesFlow,
-                    ticker,
-                ) { occurrences, lessons, rules, now ->
+                ) { occurrences, lessons, rules ->
                     val groupLessons = lessons.filter { group != null && it.group == group }
-                    buildState(date, m, fromDate, dayCount, group, occurrences, groupLessons, rules, now)
+                    buildContent(date, m, fromDate, dayCount, group, occurrences, groupLessons, rules)
                 }
             }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5_000),
+                TodayContent(todayDate(), ViewMode.DAY, group = null, days = emptyList(), cards = emptyList()),
+            )
+
+    val uiState: StateFlow<TodayUiState> =
+        combine(content, ticker) { c, now -> buildUiState(c, now) }
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5_000),
                 TodayUiState(selectedDate = todayDate(), now = Clock.System.now()),
             )
 
-    private fun buildState(
+    private fun buildContent(
         date: LocalDate,
         mode: ViewMode,
         fromDate: LocalDate,
@@ -186,8 +206,7 @@ class TodayViewModel(
         occurrences: List<Occurrence>,
         lessons: List<UniversityScheduleCacheEntity>,
         rules: List<com.sapraliev.studedu.data.local.entity.HiddenLessonRuleEntity>,
-        now: Instant,
-    ): TodayUiState {
+    ): TodayContent {
         // Видимость пар: HIDDEN выпадают совсем, DIMMED видны, но без конфликтов.
         val visibleLessons = mutableListOf<UniversityScheduleCacheEntity>()
         val dimmedLessons = mutableListOf<UniversityScheduleCacheEntity>()
@@ -222,18 +241,22 @@ class TodayViewModel(
             )
         }
 
-        val next = cards
+        return TodayContent(date = date, mode = mode, group = group, days = days, cards = cards)
+    }
+
+    private fun buildUiState(content: TodayContent, now: Instant): TodayUiState {
+        val next = content.cards
             .filter { it.start > now && !(it is ScheduleCard.University && it.dimmed) }
             .minByOrNull { it.start }
 
         return TodayUiState(
-            selectedDate = date,
-            mode = mode,
+            selectedDate = content.date,
+            mode = content.mode,
             now = now,
-            days = days,
+            days = content.days,
             untilNext = next?.let { it.start - now },
             nextTitle = next?.title,
-            universityGroup = group,
+            universityGroup = content.group,
         )
     }
 
