@@ -6,6 +6,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
+import com.sapraliev.studedu.data.settings.ThemeMode
 
 // База — читаемый пастельный Material 3.
 // Dynamic color (Material You) сознательно выключен: он перекрасил бы
@@ -23,18 +26,29 @@ private val LightColors = lightColorScheme(
 
 private val DarkColors = darkColorScheme(
     primary = NightPrimary,
+    onPrimary = NightOnPrimary,
     secondary = NightSecondary,
     tertiary = NightTertiary,
     background = NightBackground,
     surface = NightSurface,
-    error = ConflictRed,
+    onBackground = NightOnBackground,
+    onSurface = NightOnBackground,
+    error = ConflictRedDark,
 )
+
+/** Тёмная ли тема сейчас — для выбора пастелей карточек. */
+val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 @Composable
 fun StudeduTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit,
 ) {
+    val darkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
     val colorScheme = if (darkTheme) DarkColors else LightColors
     val neuShadows = if (darkTheme) {
         NeuShadows(light = NeuLightShadowDark, dark = NeuDarkShadowDark)
@@ -42,7 +56,10 @@ fun StudeduTheme(
         NeuShadows(light = NeuLightShadowLight, dark = NeuDarkShadowLight)
     }
 
-    CompositionLocalProvider(LocalNeuShadows provides neuShadows) {
+    CompositionLocalProvider(
+        LocalNeuShadows provides neuShadows,
+        LocalIsDarkTheme provides darkTheme,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             content = content,
@@ -50,21 +67,25 @@ fun StudeduTheme(
     }
 }
 
-/** Пастельный цвет карточки по типу события. */
+/**
+ * Пастельный цвет карточки по типу события.
+ * Читает LocalIsDarkTheme — уважает выбранный в настройках режим,
+ * а не только системный.
+ */
 object EventPalette {
     @Composable
-    fun personal(darkTheme: Boolean = isSystemInDarkTheme()) =
-        if (darkTheme) PersonalPastelDark else PersonalPastel
+    fun personal(): Color =
+        if (LocalIsDarkTheme.current) PersonalPastelDark else PersonalPastel
 
     @Composable
-    fun lesson(darkTheme: Boolean = isSystemInDarkTheme()) =
-        if (darkTheme) LessonPastelDark else LessonPastel
+    fun lesson(): Color =
+        if (LocalIsDarkTheme.current) LessonPastelDark else LessonPastel
 
     @Composable
-    fun deadline(darkTheme: Boolean = isSystemInDarkTheme()) =
-        if (darkTheme) DeadlinePastelDark else DeadlinePastel
+    fun deadline(): Color =
+        if (LocalIsDarkTheme.current) DeadlinePastelDark else DeadlinePastel
 
     @Composable
-    fun university(darkTheme: Boolean = isSystemInDarkTheme()) =
-        if (darkTheme) UniversityPastelDark else UniversityPastel
+    fun university(): Color =
+        if (LocalIsDarkTheme.current) UniversityPastelDark else UniversityPastel
 }

@@ -2,7 +2,6 @@ package com.sapraliev.studedu.ui.today
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -219,6 +218,15 @@ private fun TodayHeader(state: TodayUiState) {
                 text = RussianDates.fullDate(state.selectedDate),
                 style = MaterialTheme.typography.titleMedium,
             )
+            Text(
+                text = "%02d.%02d.%d".format(
+                    state.selectedDate.dayOfMonth,
+                    state.selectedDate.monthNumber,
+                    state.selectedDate.year,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             val until = state.untilNext
             if (until != null && state.nextTitle != null) {
                 Text(
@@ -272,15 +280,14 @@ private fun ScheduleCardView(card: ScheduleCard, now: Instant, onClick: () -> Un
     val end = card.end.toLocalDateTime(zone)
     val hasConflict = card.conflictTitles.isNotEmpty()
     val isPast = card.end < now
-    val dark = isSystemInDarkTheme()
 
     val dimmed = card is ScheduleCard.University && card.dimmed
     val baseColor = when (card) {
-        is ScheduleCard.University -> EventPalette.university(dark)
+        is ScheduleCard.University -> EventPalette.university()
         is ScheduleCard.Personal -> when (card.occurrence.type) {
-            EventType.PERSONAL -> EventPalette.personal(dark)
-            EventType.LESSON -> EventPalette.lesson(dark)
-            EventType.DEADLINE -> EventPalette.deadline(dark)
+            EventType.PERSONAL -> EventPalette.personal()
+            EventType.LESSON -> EventPalette.lesson()
+            EventType.DEADLINE -> EventPalette.deadline()
         }
     }
     val cardColor = when {

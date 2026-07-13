@@ -9,3 +9,4 @@
 .cxx
 app/build/
 .kotlin/
+.claude/settings.local.json

@@ -64,7 +64,7 @@ data class LessonRecordEntity(
     @ColumnInfo(name = "created_at") val createdAt: Instant,
 )
 
-/** Леджер оплат: баланс = Σ платежей − Σ начислений. */
+/** Леджер оплат: баланс = SUM(payment) − SUM(charge). */
 @Entity(
     tableName = "payments",
     foreignKeys = [

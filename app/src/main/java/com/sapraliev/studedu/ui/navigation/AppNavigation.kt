@@ -25,8 +25,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sapraliev.studedu.R
 import com.sapraliev.studedu.ui.settings.SettingsScreen
-import com.sapraliev.studedu.ui.students.StudentsScreen
 import com.sapraliev.studedu.ui.tasks.TasksScreen
+import com.sapraliev.studedu.ui.students.StudentsScreen
 import com.sapraliev.studedu.ui.today.TodayScreen
 
 /** Четыре вкладки нижней навигации. */

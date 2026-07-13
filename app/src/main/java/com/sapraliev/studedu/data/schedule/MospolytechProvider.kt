@@ -29,12 +29,12 @@ import kotlinx.serialization.json.jsonPrimitive
  * `grid` → день недели "1".."7" → номер пары "1".."7" → список занятий
  * с полями sbj/teacher/type/auditories/df/dt.
  *
- * ВНИМАНИЕ: контракт внешний и может измениться. Парсинг сделан через
- * JsonElement с ignoreUnknownKeys-подходом: неизвестные поля игнорируются,
- * отсутствие ожидаемых — ScheduleSyncException, а не падение приложения.
+ * ВНИМАНИЕ: контракт внешний. Сайт периодически уходит на техобслуживание
+ * и отдаёт HTML-заглушку — это распознаётся и превращается в понятную
+ * ошибку, кэш при этом не трогается.
  */
 class MospolytechProvider(
-    private val client: HttpClient = defaultClient(),
+    private val client: HttpClient = sharedClient,
 ) : ScheduleProvider {
 
     override val id: String = "mospolytech"
@@ -50,9 +50,22 @@ class MospolytechProvider(
                 parameter("session", 0)
                 header("Referer", "https://rasp.dmami.ru/")
                 header("X-Requested-With", "XMLHttpRequest")
+                header(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+                )
             }.bodyAsText()
         } catch (e: Exception) {
-            throw ScheduleSyncException("Не удалось получить расписание: ${e.message}", e)
+            throw ScheduleSyncException("Нет связи с rasp.dmami.ru: ${e.message}", e)
+        }
+
+        // Сайт на техобслуживании или вернул страницу вместо JSON.
+        if (body.trimStart().startsWith("<")) {
+            throw ScheduleSyncException(
+                "Сайт расписания сейчас недоступен (техобслуживание). " +
+                    "Старое расписание в приложении сохранено — попробуй синк позже.",
+            )
         }
 
         return try {
@@ -125,8 +138,11 @@ class MospolytechProvider(
     private fun stripHtml(text: String): String =
         text.replace(Regex("<[^>]*>"), "").trim()
 
-    private companion object {
-        const val ENDPOINT = "https://rasp.dmami.ru/site/group"
+    companion object {
+        private const val ENDPOINT = "https://rasp.dmami.ru/site/group"
+
+        /** Один HTTP-клиент на всё приложение: пул соединений и потоки общие. */
+        val sharedClient: HttpClient by lazy { HttpClient(OkHttp) }
 
         /** Звонковая сетка Политеха (дневная форма). */
         val PAIR_TIMES: Map<String, Pair<LocalTime, LocalTime>> = mapOf(
@@ -138,7 +154,5 @@ class MospolytechProvider(
             "6" to (LocalTime(18, 0) to LocalTime(19, 30)),
             "7" to (LocalTime(19, 40) to LocalTime(21, 10)),
         )
-
-        fun defaultClient(): HttpClient = HttpClient(OkHttp)
     }
 }

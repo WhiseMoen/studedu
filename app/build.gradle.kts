@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.compose.icons.feather)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Room — офлайн-база (источник правды для UI)

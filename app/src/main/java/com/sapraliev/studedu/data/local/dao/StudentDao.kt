@@ -117,4 +117,46 @@ interface StudentDao {
         from: LocalDate,
         to: LocalDate,
     ): Flow<List<PaymentEntity>>
+
+    // ---------- сводная статистика (для настроек) ----------
+
+    /** Начислено и получено за период по всем ученикам. */
+    @Query(
+        """
+        SELECT
+            COALESCE(SUM(CASE WHEN direction = 'charge' THEN amount END), 0) AS charged,
+            COALESCE(SUM(CASE WHEN direction = 'payment' THEN amount END), 0) AS paid
+        FROM payments WHERE date BETWEEN :from AND :to
+        """
+    )
+    fun observePeriodTotals(from: LocalDate, to: LocalDate): Flow<PeriodTotals>
+
+    /** Проведено занятий за период по всем ученикам. */
+    @Query(
+        "SELECT COUNT(*) FROM lesson_records WHERE attended = 1 AND date BETWEEN :from AND :to"
+    )
+    fun observeLessonsCount(from: LocalDate, to: LocalDate): Flow<Int>
+
+    /** Топ учеников по полученным оплатам за период. */
+    @Query(
+        """
+        SELECT student_id, COALESCE(SUM(amount), 0) AS paid
+        FROM payments
+        WHERE direction = 'payment' AND date BETWEEN :from AND :to
+        GROUP BY student_id ORDER BY paid DESC LIMIT :limit
+        """
+    )
+    fun observeTopPaying(from: LocalDate, to: LocalDate, limit: Int): Flow<List<StudentPaid>>
 }
+
+/** Итоги периода: начислено/получено. */
+data class PeriodTotals(
+    val charged: Double,
+    val paid: Double,
+)
+
+/** Проекция «ученик → получено за период». */
+data class StudentPaid(
+    @ColumnInfo(name = "student_id") val studentId: String,
+    val paid: Double,
+)

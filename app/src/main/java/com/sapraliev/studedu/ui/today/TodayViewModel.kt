@@ -113,7 +113,6 @@ class TodayViewModel(
     private val selectedDate = MutableStateFlow(todayDate())
     private val mode = MutableStateFlow(ViewMode.DAY)
 
-    /** Минутный тикер: часы, линия «сейчас», «до события». */
     private val ticker = flow {
         while (true) {
             emit(Clock.System.now())
