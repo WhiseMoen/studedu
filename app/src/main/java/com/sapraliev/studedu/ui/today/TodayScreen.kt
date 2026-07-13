@@ -2,15 +2,18 @@ package com.sapraliev.studedu.ui.today
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,8 +45,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -55,6 +61,7 @@ import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
 import kotlin.time.Duration
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -93,38 +100,42 @@ fun TodayScreen(
             TodayHeader(state)
             ModeAndDateRow(state, viewModel)
             Spacer(Modifier.height(8.dp))
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                state.days.forEach { section ->
-                    if (state.mode == ViewMode.WEEK) {
-                        item(key = "header-${section.date}") {
-                            Text(
-                                text = RussianDates.fullDate(section.date),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp),
+            if (state.mode == ViewMode.MONTH) {
+                MonthGrid(state = state, onDayClick = viewModel::selectDay)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    state.days.forEach { section ->
+                        if (state.mode == ViewMode.WEEK) {
+                            item(key = "header-${section.date}") {
+                                Text(
+                                    text = RussianDates.fullDate(section.date),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+                        if (section.cards.isEmpty() && state.mode == ViewMode.DAY) {
+                            item(key = "empty-${section.date}") { EmptyDay(state.universityGroup) }
+                        }
+                        items(section.cards, key = { it.key }) { card ->
+                            ScheduleCardView(
+                                card = card,
+                                now = state.now,
+                                onClick = {
+                                    when (card) {
+                                        is ScheduleCard.Personal -> personalAction = card
+                                        is ScheduleCard.University -> universityAction = card
+                                    }
+                                },
                             )
                         }
                     }
-                    if (section.cards.isEmpty() && state.mode == ViewMode.DAY) {
-                        item(key = "empty-${section.date}") { EmptyDay(state.universityGroup) }
-                    }
-                    items(section.cards, key = { it.key }) { card ->
-                        ScheduleCardView(
-                            card = card,
-                            now = state.now,
-                            onClick = {
-                                when (card) {
-                                    is ScheduleCard.Personal -> personalAction = card
-                                    is ScheduleCard.University -> universityAction = card
-                                }
-                            },
-                        )
-                    }
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
-                item { Spacer(Modifier.height(80.dp)) }
             }
         }
     }
@@ -215,7 +226,11 @@ private fun TodayHeader(state: TodayUiState) {
         Spacer(Modifier.width(16.dp))
         Column {
             Text(
-                text = RussianDates.fullDate(state.selectedDate),
+                text = if (state.mode == ViewMode.MONTH) {
+                    RussianDates.monthYear(state.selectedDate)
+                } else {
+                    RussianDates.fullDate(state.selectedDate)
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
@@ -262,13 +277,111 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
             onClick = { viewModel.setMode(ViewMode.WEEK) },
             label = { Text("Неделя") },
         )
+        Spacer(Modifier.width(8.dp))
+        FilterChip(
+            selected = state.mode == ViewMode.MONTH,
+            onClick = { viewModel.setMode(ViewMode.MONTH) },
+            label = { Text("Месяц") },
+        )
         Spacer(Modifier.weight(1f))
-        IconButton(onClick = { viewModel.shiftDate(if (state.mode == ViewMode.DAY) -1 else -7) }) {
+        IconButton(onClick = { viewModel.shiftDate(-1) }) {
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
         }
         TextButton(onClick = { viewModel.goToday() }) { Text("Сегодня") }
-        IconButton(onClick = { viewModel.shiftDate(if (state.mode == ViewMode.DAY) 1 else 7) }) {
+        IconButton(onClick = { viewModel.shiftDate(1) }) {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Вперёд")
+        }
+    }
+}
+
+/** Сетка месяца: свой грид (без библиотек), понедельник — первый день недели. */
+@Composable
+private fun MonthGrid(state: TodayUiState, onDayClick: (LocalDate) -> Unit) {
+    val days = state.days
+    if (days.isEmpty()) return
+    val firstDate = days.first().date
+    val leadingBlanks = firstDate.dayOfWeek.ordinal
+    val weekdayLabels = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth()) {
+            weekdayLabels.forEach { label ->
+                Text(
+                    label,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        val cells: List<DaySection?> = List(leadingBlanks) { null } + days
+        cells.chunked(7).forEach { week ->
+            Row(Modifier.fillMaxWidth()) {
+                week.forEach { section ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .padding(2.dp),
+                    ) {
+                        if (section != null) {
+                            MonthDayCell(
+                                section = section,
+                                isSelected = section.date == state.selectedDate,
+                                isToday = section.date == state.now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                                onClick = { onDayClick(section.date) },
+                            )
+                        }
+                    }
+                }
+                repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthDayCell(
+    section: DaySection,
+    isSelected: Boolean,
+    isToday: Boolean,
+    onClick: () -> Unit,
+) {
+    val hasConflict = section.cards.any { it.conflictTitles.isNotEmpty() }
+    val hasEvents = section.cards.isNotEmpty()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                when {
+                    isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                    isToday -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                    else -> Color.Transparent
+                },
+            )
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            section.date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal,
+        )
+        if (hasEvents) {
+            Box(
+                Modifier
+                    .padding(top = 2.dp)
+                    .size(6.dp)
+                    .background(
+                        if (hasConflict) ConflictRed else MaterialTheme.colorScheme.primary,
+                        CircleShape,
+                    ),
+            )
         }
     }
 }

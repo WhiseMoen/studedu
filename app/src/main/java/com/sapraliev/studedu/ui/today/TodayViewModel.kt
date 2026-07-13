@@ -43,7 +43,7 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 
-enum class ViewMode { DAY, WEEK }
+enum class ViewMode { DAY, WEEK, MONTH }
 
 /** Единая карточка ленты: личное событие или пара вуза. */
 sealed interface ScheduleCard {
@@ -142,8 +142,16 @@ class TodayViewModel(
             Triple(date, m, group)
         }
             .flatMapLatest { (date, m, group) ->
-                val fromDate = if (m == ViewMode.DAY) date else mondayOf(date)
-                val dayCount = if (m == ViewMode.DAY) 1 else 7
+                val fromDate = when (m) {
+                    ViewMode.DAY -> date
+                    ViewMode.WEEK -> mondayOf(date)
+                    ViewMode.MONTH -> firstDayOfMonth(date)
+                }
+                val dayCount = when (m) {
+                    ViewMode.DAY -> 1
+                    ViewMode.WEEK -> 7
+                    ViewMode.MONTH -> daysInMonth(date)
+                }
                 val from = fromDate.atTime(0, 0).toInstant(zone)
                 val to = fromDate.plus(DatePeriod(days = dayCount)).atTime(0, 0).toInstant(zone)
 
@@ -253,12 +261,23 @@ class TodayViewModel(
         mode.value = newMode
     }
 
-    fun shiftDate(days: Int) {
-        selectedDate.value = selectedDate.value.plus(DatePeriod(days = days))
+    /** [direction] — -1 (назад) или 1 (вперёд); шаг зависит от текущего режима. */
+    fun shiftDate(direction: Int) {
+        selectedDate.value = when (mode.value) {
+            ViewMode.DAY -> selectedDate.value.plus(DatePeriod(days = direction))
+            ViewMode.WEEK -> selectedDate.value.plus(DatePeriod(days = direction * 7))
+            ViewMode.MONTH -> selectedDate.value.plus(DatePeriod(months = direction))
+        }
     }
 
     fun goToday() {
         selectedDate.value = todayDate()
+    }
+
+    /** Тап по дню в сетке месяца — переход в режим «День» на эту дату. */
+    fun selectDay(date: LocalDate) {
+        selectedDate.value = date
+        mode.value = ViewMode.DAY
     }
 
     fun createEvent(
@@ -346,6 +365,15 @@ class TodayViewModel(
 
     private fun mondayOf(date: LocalDate): LocalDate =
         date.minus(DatePeriod(days = date.dayOfWeek.ordinal))
+
+    private fun firstDayOfMonth(date: LocalDate): LocalDate =
+        LocalDate(date.year, date.monthNumber, 1)
+
+    private fun daysInMonth(date: LocalDate): Int {
+        val first = firstDayOfMonth(date)
+        val nextMonthFirst = first.plus(DatePeriod(months = 1))
+        return (nextMonthFirst.toEpochDays() - first.toEpochDays())
+    }
 
     companion object {
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {

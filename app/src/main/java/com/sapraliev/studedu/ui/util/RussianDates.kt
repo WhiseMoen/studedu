@@ -22,9 +22,18 @@ object RussianDates {
 
     private val weekdaysShort = listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 
+    private val monthsNominative = listOf(
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+    )
+
     /** «пятница, 11 июля» */
     fun fullDate(date: LocalDate): String =
         "${weekdaysFull[date.dayOfWeek.ordinal]}, ${date.dayOfMonth} ${monthsGenitive[date.monthNumber - 1]}"
+
+    /** «Июль 2026» */
+    fun monthYear(date: LocalDate): String =
+        "${monthsNominative[date.monthNumber - 1]} ${date.year}"
 
     /** «11 июля» */
     fun dayMonth(date: LocalDate): String =
