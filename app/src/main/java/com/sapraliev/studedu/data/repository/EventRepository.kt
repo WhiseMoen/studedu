@@ -141,6 +141,11 @@ class EventRepository(
         eventDao.getEventById(eventId)?.let { eventDao.deleteEvent(it) }
     }
 
+    /** Мьют/размьют уведомлений по событию (или всей серии) целиком. */
+    suspend fun setRemindersEnabled(eventId: String, enabled: Boolean) {
+        eventDao.setRemindersEnabled(eventId, enabled)
+    }
+
     companion object {
         /**
          * До появления авторизации (Этап 5) все строки принадлежат

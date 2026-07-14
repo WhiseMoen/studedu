@@ -21,6 +21,8 @@ data class TaskEntity(
     val tags: List<String> = emptyList(),
     @ColumnInfo(name = "due_date") val dueDate: LocalDate? = null,
     val source: TaskSource = TaskSource.PERSONAL,
+    /** Напоминания о дедлайне по умолчанию можно отключить для конкретной задачи. */
+    @ColumnInfo(name = "reminders_enabled") val remindersEnabled: Boolean = true,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
 )

@@ -6,11 +6,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.sapraliev.studedu.core.AppGraph
 import com.sapraliev.studedu.data.local.AppDatabase
 import com.sapraliev.studedu.data.local.dao.TaskDao
 import com.sapraliev.studedu.data.local.entity.TaskEntity
 import com.sapraliev.studedu.data.local.entity.TaskSource
 import com.sapraliev.studedu.data.repository.EventRepository
+import com.sapraliev.studedu.notifications.ReminderScheduler
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,7 +33,10 @@ data class TasksUiState(
     val today: LocalDate = LocalDate(2000, 1, 1),
 )
 
-class TasksViewModel(private val taskDao: TaskDao) : ViewModel() {
+class TasksViewModel(
+    private val taskDao: TaskDao,
+    private val reminderScheduler: ReminderScheduler,
+) : ViewModel() {
 
     private val filter = MutableStateFlow(TaskFilter.ALL)
 
@@ -69,21 +74,39 @@ class TasksViewModel(private val taskDao: TaskDao) : ViewModel() {
                     updatedAt = now,
                 ),
             )
+            reminderScheduler.refresh()
         }
     }
 
     fun setDone(task: TaskEntity, done: Boolean) {
-        viewModelScope.launch { taskDao.setDone(task.id, done) }
+        viewModelScope.launch {
+            taskDao.setDone(task.id, done)
+            reminderScheduler.refresh()
+        }
+    }
+
+    /** Мьют напоминаний о дедлайне для конкретной задачи (тонкая настройка тиров — позже). */
+    fun setRemindersEnabled(task: TaskEntity, enabled: Boolean) {
+        viewModelScope.launch {
+            taskDao.setRemindersEnabled(task.id, enabled)
+            reminderScheduler.refresh()
+        }
     }
 
     fun delete(task: TaskEntity) {
-        viewModelScope.launch { taskDao.deleteTask(task) }
+        viewModelScope.launch {
+            taskDao.deleteTask(task)
+            reminderScheduler.refresh()
+        }
     }
 
     companion object {
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                TasksViewModel(AppDatabase.get(context.applicationContext).taskDao())
+                TasksViewModel(
+                    AppDatabase.get(context.applicationContext).taskDao(),
+                    AppGraph.reminderScheduler,
+                )
             }
         }
     }

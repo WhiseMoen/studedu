@@ -79,6 +79,8 @@ data class EventEntity(
     @ColumnInfo(name = "recurrence_rule_id") val recurrenceRuleId: String? = null,
     val color: String? = null,
     val source: String? = null,
+    /** Напоминания по умолчанию для этого события/серии можно отключить целиком. */
+    @ColumnInfo(name = "reminders_enabled") val remindersEnabled: Boolean = true,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
 )

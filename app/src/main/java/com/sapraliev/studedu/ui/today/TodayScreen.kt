@@ -189,6 +189,10 @@ fun TodayScreen(
                 viewModel.cancelOccurrence(card)
                 personalAction = null
             },
+            onToggleReminders = {
+                viewModel.setEventRemindersEnabled(card, !card.occurrence.remindersEnabled)
+                personalAction = null
+            },
             onDeleteEvent = {
                 viewModel.deleteEvent(card)
                 personalAction = null
@@ -614,6 +618,7 @@ private fun PersonalActionsDialog(
     onDismiss: () -> Unit,
     onMarkDone: (() -> Unit)?,
     onCancelOccurrence: () -> Unit,
+    onToggleReminders: () -> Unit,
     onDeleteEvent: () -> Unit,
 ) {
     val isSeries = card.occurrence.originalStart != null
@@ -632,6 +637,15 @@ private fun PersonalActionsDialog(
                 }
                 if (isSeries) {
                     TextButton(onClick = onCancelOccurrence) { Text("Отменить это вхождение") }
+                }
+                TextButton(onClick = onToggleReminders) {
+                    Text(
+                        if (card.occurrence.remindersEnabled) {
+                            "Отключить уведомления"
+                        } else {
+                            "Включить уведомления"
+                        },
+                    )
                 }
                 TextButton(onClick = onDeleteEvent) {
                     Text(

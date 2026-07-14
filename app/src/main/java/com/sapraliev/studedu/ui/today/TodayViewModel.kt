@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.sapraliev.studedu.core.AppGraph
 import com.sapraliev.studedu.data.local.AppDatabase
 import com.sapraliev.studedu.data.local.entity.EventType
 import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
@@ -19,6 +20,7 @@ import com.sapraliev.studedu.domain.conflict.ConflictDetector
 import com.sapraliev.studedu.domain.occurrence.Occurrence
 import com.sapraliev.studedu.domain.schedule.LessonVisibility
 import com.sapraliev.studedu.domain.schedule.LessonVisibilityFilter
+import com.sapraliev.studedu.notifications.ReminderScheduler
 import kotlin.time.Duration
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -105,6 +107,7 @@ class TodayViewModel(
     private val scheduleRepository: ScheduleRepository,
     private val studentsRepository: StudentsRepository,
     private val settings: AppSettings,
+    private val reminderScheduler: ReminderScheduler,
 ) : ViewModel() {
 
     private val zone = TimeZone.currentSystemDefault()
@@ -335,6 +338,7 @@ class TodayViewModel(
                 studentId = enrollment?.studentId,
                 enrollmentId = enrollment?.enrollmentId,
             )
+            reminderScheduler.refresh()
         }
     }
 
@@ -365,6 +369,7 @@ class TodayViewModel(
                 topics = topics?.takeIf { it.isNotBlank() },
                 homework = homework?.takeIf { it.isNotBlank() },
             )
+            reminderScheduler.refresh()
         }
     }
 
@@ -372,12 +377,22 @@ class TodayViewModel(
         val original = card.occurrence.originalStart ?: return
         viewModelScope.launch {
             eventRepository.cancelOccurrence(card.occurrence.eventId, original)
+            reminderScheduler.refresh()
         }
     }
 
     fun deleteEvent(card: ScheduleCard.Personal) {
         viewModelScope.launch {
             eventRepository.deleteEvent(card.occurrence.eventId)
+            reminderScheduler.refresh()
+        }
+    }
+
+    /** Мьют уведомлений для события/серии целиком (тонкая настройка — после появления экрана редактирования). */
+    fun setEventRemindersEnabled(card: ScheduleCard.Personal, enabled: Boolean) {
+        viewModelScope.launch {
+            eventRepository.setRemindersEnabled(card.occurrence.eventId, enabled)
+            reminderScheduler.refresh()
         }
     }
 
@@ -426,6 +441,7 @@ class TodayViewModel(
                         db.enrollmentDao(),
                     ),
                     settings = AppSettings.get(app),
+                    reminderScheduler = AppGraph.reminderScheduler,
                 )
             }
         }

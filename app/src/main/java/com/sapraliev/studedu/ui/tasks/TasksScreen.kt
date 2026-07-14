@@ -52,6 +52,8 @@ import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
 import compose.icons.FeatherIcons
+import compose.icons.feathericons.Bell
+import compose.icons.feathericons.BellOff
 import compose.icons.feathericons.Plus
 import compose.icons.feathericons.X
 import kotlinx.datetime.Instant
@@ -129,6 +131,7 @@ fun TasksScreen(
                     task = task,
                     today = state.today,
                     onToggle = { viewModel.setDone(task, it) },
+                    onToggleReminders = { viewModel.setRemindersEnabled(task, !task.remindersEnabled) },
                     onDelete = { viewModel.delete(task) },
                 )
             }
@@ -152,6 +155,7 @@ private fun TaskRow(
     task: TaskEntity,
     today: LocalDate,
     onToggle: (Boolean) -> Unit,
+    onToggleReminders: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val overdue = !task.done && task.dueDate != null && task.dueDate < today
@@ -185,6 +189,20 @@ private fun TaskRow(
                         meta,
                         style = MaterialTheme.typography.bodySmall,
                         color = if (overdue) ConflictRed else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (task.dueDate != null) {
+                IconButton(onClick = onToggleReminders) {
+                    Icon(
+                        if (task.remindersEnabled) FeatherIcons.Bell else FeatherIcons.BellOff,
+                        contentDescription = if (task.remindersEnabled) {
+                            "Отключить напоминания"
+                        } else {
+                            "Включить напоминания"
+                        },
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

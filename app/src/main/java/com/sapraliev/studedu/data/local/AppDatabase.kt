@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.sapraliev.studedu.data.local.dao.EnrollmentDao
 import com.sapraliev.studedu.data.local.dao.EventDao
 import com.sapraliev.studedu.data.local.dao.HiddenLessonDao
+import com.sapraliev.studedu.data.local.dao.ReminderDao
 import com.sapraliev.studedu.data.local.dao.ScheduleCacheDao
 import com.sapraliev.studedu.data.local.dao.StudentDao
 import com.sapraliev.studedu.data.local.dao.TaskDao
@@ -20,6 +21,7 @@ import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.RecurrenceExceptionEntity
 import com.sapraliev.studedu.data.local.entity.RecurrenceRuleEntity
+import com.sapraliev.studedu.data.local.entity.ScheduledReminderEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
 import com.sapraliev.studedu.data.local.entity.TaskEntity
 import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
@@ -40,8 +42,9 @@ import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
         UniversityScheduleCacheEntity::class,
         HiddenLessonRuleEntity::class,
         EnrollmentEntity::class,
+        ScheduledReminderEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -53,6 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scheduleCacheDao(): ScheduleCacheDao
     abstract fun hiddenLessonDao(): HiddenLessonDao
     abstract fun enrollmentDao(): EnrollmentDao
+    abstract fun reminderDao(): ReminderDao
 
     companion object {
         @Volatile
@@ -145,6 +149,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 → v4: напоминания — мьют на событие/задачу + учёт запланированных будильников. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `events` ADD COLUMN `reminders_enabled` INTEGER NOT NULL DEFAULT 1"
+                )
+                db.execSQL(
+                    "ALTER TABLE `tasks` ADD COLUMN `reminders_enabled` INTEGER NOT NULL DEFAULT 1"
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `scheduled_reminders` (
+                        `request_code` INTEGER NOT NULL,
+                        `trigger_at` INTEGER NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `body` TEXT NOT NULL,
+                        PRIMARY KEY(`request_code`)
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -152,7 +179,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "studedu.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }

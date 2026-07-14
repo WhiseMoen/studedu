@@ -77,6 +77,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.lib.recur)
 
+    // Уведомления: суточное обновление окна планирования будильников
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Тесты
     testImplementation(libs.junit)
 }

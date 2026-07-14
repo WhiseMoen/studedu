@@ -18,6 +18,8 @@ data class Occurrence(
     val studentId: String?,
     val enrollmentId: String?,
     val color: String?,
+    /** Напоминания отключены для родительского события/серии целиком. */
+    val remindersEnabled: Boolean = true,
     /** Вхождение перенесено исключением (recurrence_exceptions.moved). */
     val isMoved: Boolean = false,
     /**

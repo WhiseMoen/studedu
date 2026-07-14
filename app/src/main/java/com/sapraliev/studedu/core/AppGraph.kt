@@ -7,6 +7,12 @@ import com.sapraliev.studedu.data.repository.ScheduleRepository
 import com.sapraliev.studedu.data.repository.StudentsRepository
 import com.sapraliev.studedu.data.schedule.MospolytechProvider
 import com.sapraliev.studedu.data.settings.AppSettings
+import com.sapraliev.studedu.notifications.NotificationChannels
+import com.sapraliev.studedu.notifications.ReminderRefreshWorker
+import com.sapraliev.studedu.notifications.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Композиционный корень приложения (сервис-локатор).
@@ -24,9 +30,12 @@ object AppGraph {
         requireNotNull(appContext) { "AppGraph.init(context) не вызван" }
 
     fun init(context: Context) {
-        if (appContext == null) {
-            appContext = context.applicationContext
-        }
+        if (appContext != null) return
+        appContext = context.applicationContext
+
+        NotificationChannels.ensureCreated(ctx())
+        ReminderRefreshWorker.enqueue(ctx())
+        CoroutineScope(Dispatchers.IO).launch { reminderScheduler.refresh() }
     }
 
     val database: AppDatabase by lazy { AppDatabase.get(ctx()) }
@@ -47,5 +56,9 @@ object AppGraph {
 
     val studentsRepository: StudentsRepository by lazy {
         StudentsRepository(database.studentDao(), database.enrollmentDao())
+    }
+
+    val reminderScheduler: ReminderScheduler by lazy {
+        ReminderScheduler(ctx(), database.eventDao(), database.taskDao(), database.reminderDao())
     }
 }

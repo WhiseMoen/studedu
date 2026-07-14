@@ -123,6 +123,7 @@ class OccurrenceGenerator(
         studentId = studentId,
         enrollmentId = enrollmentId,
         color = color,
+        remindersEnabled = remindersEnabled,
         isMoved = isMoved,
         originalStart = originalStart,
     )

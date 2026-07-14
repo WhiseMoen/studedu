@@ -1,7 +1,10 @@
 package com.sapraliev.studedu.ui.settings
 
+import android.app.AlarmManager
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,6 +89,33 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(top = 20.dp),
             )
+        }
+
+        // ---------- уведомления ----------
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = context.getSystemService(AlarmManager::class.java)
+            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                item {
+                    SettingsCard(title = "Уведомления") {
+                        Text(
+                            "Чтобы напоминания о занятиях и дедлайнах приходили точно " +
+                                "вовремя, разреши точные будильники в системных настройках.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(
+                            onClick = {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(AndroidSettings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM),
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Разрешить точные будильники") }
+                    }
+                }
+            }
         }
 
         // ---------- расписание вуза ----------
