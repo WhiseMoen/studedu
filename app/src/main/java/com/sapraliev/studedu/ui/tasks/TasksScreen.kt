@@ -10,14 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +51,9 @@ import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.Plus
+import compose.icons.feathericons.X
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -81,7 +82,7 @@ fun TasksScreen(
                 interactionSource = interactionSource,
                 modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp, pressed = pressed),
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Добавить задачу")
+                Icon(FeatherIcons.Plus, contentDescription = "Добавить задачу")
             }
         },
     ) { padding ->
@@ -189,8 +190,9 @@ private fun TaskRow(
             }
             IconButton(onClick = onDelete) {
                 Icon(
-                    Icons.Filled.Close,
+                    FeatherIcons.X,
                     contentDescription = "Удалить",
+                    modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

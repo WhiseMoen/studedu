@@ -11,15 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +50,10 @@ import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ArrowLeft
+import compose.icons.feathericons.ArrowRight
+import compose.icons.feathericons.Plus
 
 @Composable
 fun StudentsScreen(
@@ -80,7 +81,7 @@ fun StudentsScreen(
                     interactionSource = interactionSource,
                     modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp, pressed = pressed),
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = "Добавить ученика")
+                    Icon(FeatherIcons.Plus, contentDescription = "Добавить ученика")
                 }
             },
         ) { padding ->
@@ -178,7 +179,12 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                 modifier = Modifier.padding(top = 12.dp),
             ) {
                 IconButton(onClick = { viewModel.closeStudent() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                    Icon(
+                        FeatherIcons.ArrowLeft,
+                        contentDescription = "Назад",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 Column {
                     Text(
@@ -253,7 +259,12 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { viewModel.shiftMonth(1) }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Раньше")
+                            Icon(
+                                FeatherIcons.ArrowLeft,
+                                contentDescription = "Раньше",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         Text(
                             monthTitle(summary.monthStart),
@@ -262,7 +273,12 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                             fontWeight = FontWeight.SemiBold,
                         )
                         IconButton(onClick = { viewModel.shiftMonth(-1) }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Позже")
+                            Icon(
+                                FeatherIcons.ArrowRight,
+                                contentDescription = "Позже",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                     Text("Занятий: ${summary.lessonsTotal}")

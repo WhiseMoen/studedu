@@ -314,11 +314,21 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
         )
         Spacer(Modifier.weight(1f))
         IconButton(onClick = { viewModel.shiftDate(-1) }) {
-            Icon(FeatherIcons.ArrowLeft, contentDescription = "Назад")
+            Icon(
+                FeatherIcons.ArrowLeft,
+                contentDescription = "Назад",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         TextButton(onClick = { viewModel.goToday() }) { Text("Сегодня") }
         IconButton(onClick = { viewModel.shiftDate(1) }) {
-            Icon(FeatherIcons.ArrowRight, contentDescription = "Вперёд")
+            Icon(
+                FeatherIcons.ArrowRight,
+                contentDescription = "Вперёд",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

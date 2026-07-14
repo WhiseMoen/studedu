@@ -136,7 +136,7 @@ fun SettingsScreen(
                                     Icon(
                                         FeatherIcons.Trash2,
                                         contentDescription = "Удалить группу $group",
-                                        modifier = Modifier.size(18.dp),
+                                        modifier = Modifier.size(20.dp),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
@@ -158,7 +158,7 @@ fun SettingsScreen(
                             Icon(
                                 FeatherIcons.RefreshCw,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                             Spacer(Modifier.width(8.dp))
                             Text("Обновить расписание")
@@ -207,7 +207,7 @@ fun SettingsScreen(
                         Icon(
                             FeatherIcons.User,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text("Личный кабинет", maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -225,7 +225,7 @@ fun SettingsScreen(
                         Icon(
                             FeatherIcons.BookOpen,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text("СДО", maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -240,7 +240,7 @@ fun SettingsScreen(
                         Icon(
                             FeatherIcons.ExternalLink,
                             contentDescription = null,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(20.dp),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text("Изменить ссылки (для другого вуза)")
@@ -384,7 +384,7 @@ fun SettingsScreen(
                         Icon(
                             FeatherIcons.X,
                             contentDescription = "Вернуть пару",
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(20.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
