@@ -2,6 +2,8 @@ package com.sapraliev.studedu.ui.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,12 +41,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sapraliev.studedu.data.local.entity.HiddenLessonMode
 import com.sapraliev.studedu.data.settings.ThemeMode
+import com.sapraliev.studedu.ui.theme.LocalNeuShadows
+import com.sapraliev.studedu.ui.theme.neumorphic
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.BookOpen
+import compose.icons.feathericons.ChevronRight
 import compose.icons.feathericons.ExternalLink
 import compose.icons.feathericons.RefreshCw
 import compose.icons.feathericons.Trash2
@@ -187,9 +194,15 @@ fun SettingsScreen(
         item {
             SettingsCard(title = "Вуз под рукой") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val lkInteraction = remember { MutableInteractionSource() }
+                    val lkPressed by lkInteraction.collectIsPressedAsState()
                     OutlinedButton(
                         onClick = { openUrl(state.lkUrl) },
-                        modifier = Modifier.weight(1f),
+                        interactionSource = lkInteraction,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 44.dp)
+                            .neumorphic(LocalNeuShadows.current, cornerRadius = 20.dp, pressed = lkPressed),
                     ) {
                         Icon(
                             FeatherIcons.User,
@@ -197,11 +210,17 @@ fun SettingsScreen(
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("Личный кабинет")
+                        Text("Личный кабинет", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    val sdoInteraction = remember { MutableInteractionSource() }
+                    val sdoPressed by sdoInteraction.collectIsPressedAsState()
                     OutlinedButton(
                         onClick = { openUrl(state.sdoUrl) },
-                        modifier = Modifier.weight(1f),
+                        interactionSource = sdoInteraction,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 44.dp)
+                            .neumorphic(LocalNeuShadows.current, cornerRadius = 20.dp, pressed = sdoPressed),
                     ) {
                         Icon(
                             FeatherIcons.BookOpen,
@@ -209,7 +228,7 @@ fun SettingsScreen(
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("СДО")
+                        Text("СДО", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (!editLinks) {
@@ -242,10 +261,20 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = {
-                            viewModel.saveLinks(lkInput, sdoInput)
-                            editLinks = false
-                        }) { Text("Сохранить") }
+                        val saveInteraction = remember { MutableInteractionSource() }
+                        val savePressed by saveInteraction.collectIsPressedAsState()
+                        Button(
+                            onClick = {
+                                viewModel.saveLinks(lkInput, sdoInput)
+                                editLinks = false
+                            },
+                            interactionSource = saveInteraction,
+                            modifier = Modifier.neumorphic(
+                                LocalNeuShadows.current,
+                                cornerRadius = 20.dp,
+                                pressed = savePressed,
+                            ),
+                        ) { Text("Сохранить") }
                         TextButton(onClick = { editLinks = false }) { Text("Отмена") }
                     }
                 }

@@ -1,5 +1,7 @@
 package com.sapraliev.studedu.ui.tasks
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,11 +72,14 @@ fun TasksScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
+            val interactionSource = remember { MutableInteractionSource() }
+            val pressed by interactionSource.collectIsPressedAsState()
             FloatingActionButton(
                 onClick = { addOpen = true },
                 shape = CircleShape,
                 containerColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp),
+                interactionSource = interactionSource,
+                modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp, pressed = pressed),
             ) {
                 Icon(Icons.Filled.Add, contentDescription = "Добавить задачу")
             }

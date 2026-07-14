@@ -1,5 +1,7 @@
 package com.sapraliev.studedu.ui.today
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.sapraliev.studedu.data.local.entity.EventType
 import com.sapraliev.studedu.data.local.entity.RecurrenceFreq
 import com.sapraliev.studedu.data.repository.NewRecurrence
+import com.sapraliev.studedu.ui.theme.LocalNeuShadows
+import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
 import kotlin.time.Duration.Companion.hours
 import kotlinx.datetime.DayOfWeek
@@ -246,6 +250,8 @@ fun EventEditorSheet(
             }
 
             Spacer(Modifier.height(4.dp))
+            val saveInteractionSource = remember { MutableInteractionSource() }
+            val savePressed by saveInteractionSource.collectIsPressedAsState()
             Button(
                 onClick = {
                     if (title.isBlank()) return@Button
@@ -279,7 +285,10 @@ fun EventEditorSheet(
                         if (type == EventType.LESSON) selectedEnrollment else null,
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                interactionSource = saveInteractionSource,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neumorphic(LocalNeuShadows.current, cornerRadius = 20.dp, pressed = savePressed),
             ) {
                 Text("Сохранить")
             }

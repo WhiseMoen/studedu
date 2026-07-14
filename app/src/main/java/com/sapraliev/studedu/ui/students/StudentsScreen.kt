@@ -1,6 +1,8 @@
 package com.sapraliev.studedu.ui.students
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -69,11 +71,14 @@ fun StudentsScreen(
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             floatingActionButton = {
+                val interactionSource = remember { MutableInteractionSource() }
+                val pressed by interactionSource.collectIsPressedAsState()
                 FloatingActionButton(
                     onClick = { addStudentOpen = true },
                     shape = CircleShape,
                     containerColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp),
+                    interactionSource = interactionSource,
+                    modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp, pressed = pressed),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = "Добавить ученика")
                 }
