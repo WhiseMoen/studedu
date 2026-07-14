@@ -41,6 +41,9 @@ interface StudentDao {
     @Delete
     suspend fun deleteStudent(student: StudentEntity)
 
+    @Query("DELETE FROM students WHERE id = :id")
+    suspend fun deleteStudentById(id: String)
+
     // ---------- записи занятий ----------
 
     @Query("SELECT * FROM lesson_records WHERE student_id = :studentId ORDER BY date DESC")

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -19,9 +20,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
+import compose.icons.feathericons.Trash2
 
 @Composable
 fun StatsScreen(
@@ -36,6 +42,7 @@ fun StatsScreen(
     viewModel: StatsViewModel = viewModel(factory = StatsViewModel.factory()),
 ) {
     val state by viewModel.uiState.collectAsState()
+    var pendingDelete by remember { mutableStateOf<StudentStatsRow?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -109,11 +116,22 @@ fun StatsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        row.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            row.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { pendingDelete = row }) {
+                            Icon(
+                                FeatherIcons.Trash2,
+                                contentDescription = "Удалить ученика ${row.name}",
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     StatsPeriodLine("Этот месяц", row.monthLessons, row.monthPaid, row.monthCharged)
                     StatsPeriodLine("Прошлый месяц", row.prevLessons, row.prevPaid, row.prevCharged)
                 }
@@ -121,6 +139,25 @@ fun StatsScreen(
         }
 
         item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    pendingDelete?.let { row ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Удалить ученика?") },
+            text = {
+                Text("«${row.name}» и вся история занятий/платежей будут удалены безвозвратно.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteStudent(row.studentId)
+                    pendingDelete = null
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Отмена") }
+            },
+        )
     }
 }
 

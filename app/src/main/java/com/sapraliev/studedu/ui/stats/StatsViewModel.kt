@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -89,6 +90,13 @@ class StatsViewModel(private val studentDao: StudentDao) : ViewModel() {
                 students = rows,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsScreenState())
+    }
+
+    /** Удаление ученика прямо из статистики — независимо от экрана «Ученики». */
+    fun deleteStudent(studentId: String) {
+        viewModelScope.launch {
+            studentDao.deleteStudentById(studentId)
+        }
     }
 
     companion object {

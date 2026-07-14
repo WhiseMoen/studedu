@@ -198,6 +198,36 @@ class StudentsViewModel(
         }
     }
 
+    fun updateStudent(name: String, contact: String?) {
+        val studentId = selectedStudentId.value ?: return
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            repository.updateStudent(studentId, name, contact)
+        }
+    }
+
+    /** Удаляет открытого ученика целиком (занятия и платежи — каскадом) и закрывает деталь. */
+    fun deleteStudent() {
+        val studentId = selectedStudentId.value ?: return
+        viewModelScope.launch {
+            repository.deleteStudent(studentId)
+            closeStudent()
+        }
+    }
+
+    fun updateEnrollment(id: String, subject: String, price: Double?, mode: BillingMode, monthlyFee: Double?) {
+        if (subject.isBlank()) return
+        viewModelScope.launch {
+            repository.updateEnrollment(id, subject, price, mode, monthlyFee)
+        }
+    }
+
+    fun deleteEnrollment(id: String) {
+        viewModelScope.launch {
+            repository.deleteEnrollment(id)
+        }
+    }
+
     fun addPayment(amount: Double, comment: String?) {
         val studentId = selectedStudentId.value ?: return
         viewModelScope.launch {

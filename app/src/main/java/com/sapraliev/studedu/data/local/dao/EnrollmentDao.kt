@@ -25,4 +25,7 @@ interface EnrollmentDao {
 
     @Query("UPDATE enrollments SET active = 0, updated_at = :now WHERE id = :id")
     suspend fun deactivate(id: String, now: Instant)
+
+    @Query("DELETE FROM enrollments WHERE id = :id")
+    suspend fun delete(id: String)
 }

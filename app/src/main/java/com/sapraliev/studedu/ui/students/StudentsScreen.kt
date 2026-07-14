@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sapraliev.studedu.data.local.entity.BillingMode
+import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
 import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
@@ -53,7 +54,9 @@ import com.sapraliev.studedu.ui.util.RussianDates
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.ArrowRight
+import compose.icons.feathericons.Edit2
 import compose.icons.feathericons.Plus
+import compose.icons.feathericons.Trash2
 
 @Composable
 fun StudentsScreen(
@@ -166,6 +169,10 @@ fun StudentsScreen(
 private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewModel) {
     var paymentOpen by remember { mutableStateOf(false) }
     var enrollmentOpen by remember { mutableStateOf(false) }
+    var editStudentOpen by remember { mutableStateOf(false) }
+    var deleteStudentOpen by remember { mutableStateOf(false) }
+    var editingEnrollment by remember { mutableStateOf<EnrollmentEntity?>(null) }
+    var deletingEnrollment by remember { mutableStateOf<EnrollmentEntity?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -176,7 +183,9 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
         item {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
             ) {
                 IconButton(onClick = { viewModel.closeStudent() }) {
                     Icon(
@@ -186,7 +195,7 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
                         detail.student.name,
                         style = MaterialTheme.typography.headlineSmall,
@@ -199,6 +208,22 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+                IconButton(onClick = { editStudentOpen = true }) {
+                    Icon(
+                        FeatherIcons.Edit2,
+                        contentDescription = "Изменить ученика",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = { deleteStudentOpen = true }) {
+                    Icon(
+                        FeatherIcons.Trash2,
+                        contentDescription = "Удалить ученика",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -243,6 +268,67 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { paymentOpen = true }) { Text("Платёж +") }
                         OutlinedButton(onClick = { enrollmentOpen = true }) { Text("Предмет +") }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Предметы",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (detail.enrollments.isEmpty()) {
+                        Text(
+                            "Пока нет предметов",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                    detail.enrollments.forEachIndexed { index, enrollment ->
+                        if (index > 0) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(enrollment.subject, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    enrollmentRateLabel(enrollment),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = { editingEnrollment = enrollment }) {
+                                Icon(
+                                    FeatherIcons.Edit2,
+                                    contentDescription = "Изменить предмет ${enrollment.subject}",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            IconButton(onClick = { deletingEnrollment = enrollment }) {
+                                Icon(
+                                    FeatherIcons.Trash2,
+                                    contentDescription = "Удалить предмет ${enrollment.subject}",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -343,6 +429,66 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
             },
         )
     }
+    if (editStudentOpen) {
+        EditStudentDialog(
+            initialName = detail.student.name,
+            initialContact = detail.student.contact,
+            onDismiss = { editStudentOpen = false },
+            onSave = { name, contact ->
+                viewModel.updateStudent(name, contact)
+                editStudentOpen = false
+            },
+        )
+    }
+    if (deleteStudentOpen) {
+        AlertDialog(
+            onDismissRequest = { deleteStudentOpen = false },
+            title = { Text("Удалить ученика?") },
+            text = {
+                Text("«${detail.student.name}» и вся история занятий/платежей будут удалены безвозвратно.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteStudent()
+                    deleteStudentOpen = false
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteStudentOpen = false }) { Text("Отмена") }
+            },
+        )
+    }
+    editingEnrollment?.let { enrollment ->
+        StudentEditorDialog(
+            title = "Изменить предмет",
+            askName = false,
+            initialSubject = enrollment.subject,
+            initialPrice = enrollment.pricePerLesson,
+            initialMode = enrollment.billingMode,
+            initialMonthlyFee = enrollment.monthlyFee,
+            onDismiss = { editingEnrollment = null },
+            onSave = { _, _, subject, price, mode, fee ->
+                viewModel.updateEnrollment(enrollment.id, subject, price, mode, fee)
+                editingEnrollment = null
+            },
+        )
+    }
+    deletingEnrollment?.let { enrollment ->
+        AlertDialog(
+            onDismissRequest = { deletingEnrollment = null },
+            title = { Text("Удалить предмет?") },
+            text = { Text("«${enrollment.subject}» будет удалён. История занятий и платежей останется.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteEnrollment(enrollment.id)
+                    deletingEnrollment = null
+                }) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingEnrollment = null }) { Text("Отмена") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -436,13 +582,17 @@ private fun StudentEditorDialog(
         mode: BillingMode,
         monthlyFee: Double?,
     ) -> Unit,
+    initialSubject: String = "",
+    initialPrice: Double? = null,
+    initialMode: BillingMode = BillingMode.PER_LESSON,
+    initialMonthlyFee: Double? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
-    var subject by remember { mutableStateOf("") }
-    var priceText by remember { mutableStateOf("") }
-    var mode by remember { mutableStateOf(BillingMode.PER_LESSON) }
-    var feeText by remember { mutableStateOf("") }
+    var subject by remember { mutableStateOf(initialSubject) }
+    var priceText by remember { mutableStateOf(initialPrice?.let { formatEditableAmount(it) } ?: "") }
+    var mode by remember { mutableStateOf(initialMode) }
+    var feeText by remember { mutableStateOf(initialMonthlyFee?.let { formatEditableAmount(it) } ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -564,6 +714,58 @@ private fun PaymentDialog(
         },
     )
 }
+
+@Composable
+private fun EditStudentDialog(
+    initialName: String,
+    initialContact: String?,
+    onDismiss: () -> Unit,
+    onSave: (name: String, contact: String?) -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var contact by remember { mutableStateOf(initialContact ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Изменить ученика") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Имя") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = contact,
+                    onValueChange = { contact = it },
+                    label = { Text("Контакт (телефон/tg)") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isBlank()) return@TextButton
+                    onSave(name, contact.takeIf { it.isNotBlank() })
+                },
+            ) { Text("Сохранить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
+}
+
+private fun enrollmentRateLabel(enrollment: EnrollmentEntity): String = when (enrollment.billingMode) {
+    BillingMode.MONTHLY -> enrollment.monthlyFee?.let { "${formatMoney(it)}/мес" } ?: "фикс/мес — ставка не задана"
+    BillingMode.PACKAGE -> enrollment.pricePerLesson?.let { "${formatMoney(it)}/занятие · пакет" } ?: "пакет"
+    BillingMode.PER_LESSON -> enrollment.pricePerLesson?.let { "${formatMoney(it)}/занятие" } ?: "ставка не задана"
+}
+
+private fun formatEditableAmount(amount: Double): String =
+    if (amount == amount.toLong().toDouble()) amount.toLong().toString() else amount.toString()
 
 private fun String.filterMoney(): String =
     filter { it.isDigit() || it == '.' }.take(9)

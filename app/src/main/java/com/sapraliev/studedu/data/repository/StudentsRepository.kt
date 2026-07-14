@@ -116,6 +116,48 @@ class StudentsRepository(
         )
     }
 
+    /** Меняет имя/контакт ученика. Ставки и история занятий не затрагиваются. */
+    suspend fun updateStudent(id: String, name: String, contact: String?) {
+        val existing = studentDao.getStudentById(id) ?: return
+        studentDao.upsertStudent(
+            existing.copy(
+                name = name.trim(),
+                contact = contact?.trim()?.takeIf { it.isNotEmpty() },
+                updatedAt = Clock.System.now(),
+            ),
+        )
+    }
+
+    /** Удаляет ученика целиком: занятия и платежи каскадно удаляются по FK. */
+    suspend fun deleteStudent(id: String) {
+        studentDao.deleteStudentById(id)
+    }
+
+    /** Меняет предмет/ставку. История начислений не переписывается — суммы уже скопированы в payments. */
+    suspend fun updateEnrollment(
+        id: String,
+        subject: String,
+        pricePerLesson: Double?,
+        billingMode: BillingMode,
+        monthlyFee: Double?,
+    ) {
+        val existing = enrollmentDao.getById(id) ?: return
+        enrollmentDao.upsert(
+            existing.copy(
+                subject = subject.trim(),
+                pricePerLesson = pricePerLesson,
+                billingMode = billingMode,
+                monthlyFee = monthlyFee,
+                updatedAt = Clock.System.now(),
+            ),
+        )
+    }
+
+    /** Удаляет предмет. Записи занятий/платежей не FK-связаны с enrollment — история остаётся. */
+    suspend fun deleteEnrollment(id: String) {
+        enrollmentDao.delete(id)
+    }
+
     /** Платёж от ученика. */
     suspend fun addPayment(
         studentId: String,
