@@ -317,6 +317,34 @@ class TodayViewModel(
         mode.value = ViewMode.DAY
     }
 
+    /**
+     * Создание ученика (и сразу первого предмета) прямо из формы события —
+     * чтобы не приходилось прерывать заведение занятия походом на вкладку
+     * «Ученики». [onCreated] получает опцию для немедленного выбора в форме;
+     * реальный список [enrollmentOptions] подтянет её следом реактивно.
+     */
+    fun createStudentForEvent(
+        name: String,
+        contact: String?,
+        subject: String,
+        price: Double?,
+        monthlyFee: Double?,
+        onCreated: (EnrollmentOption) -> Unit,
+    ) {
+        if (name.isBlank() || subject.isBlank()) return
+        viewModelScope.launch {
+            val result = studentsRepository.addStudent(name, contact, subject, price, monthlyFee)
+            onCreated(
+                EnrollmentOption(
+                    enrollmentId = result.enrollmentId,
+                    studentId = result.studentId,
+                    label = "${name.trim()} — ${subject.trim()}",
+                    pricePerLesson = price,
+                ),
+            )
+        }
+    }
+
     fun createEvent(
         title: String,
         comment: String?,
@@ -356,16 +384,12 @@ class TodayViewModel(
         val enrollmentId = card.occurrence.enrollmentId ?: return
         viewModelScope.launch {
             val enrollment = studentsRepository.getEnrollment(enrollmentId) ?: return@launch
-            val amount = amountOverride ?: when (enrollment.billingMode) {
-                com.sapraliev.studedu.data.local.entity.BillingMode.MONTHLY -> 0.0
-                else -> enrollment.pricePerLesson ?: 0.0
-            }
             studentsRepository.markLessonDone(
                 studentId = enrollment.studentId,
                 enrollmentId = enrollment.id,
                 eventId = card.occurrence.eventId,
                 date = card.start.toLocalDateTime(zone).date,
-                chargeAmount = amount,
+                amountOverride = amountOverride,
                 topics = topics?.takeIf { it.isNotBlank() },
                 homework = homework?.takeIf { it.isNotBlank() },
             )

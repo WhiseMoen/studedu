@@ -2,7 +2,6 @@ package com.sapraliev.studedu.data.repository
 
 import com.sapraliev.studedu.data.local.dao.EnrollmentDao
 import com.sapraliev.studedu.data.local.dao.StudentDao
-import com.sapraliev.studedu.data.local.entity.BillingMode
 import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
 import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
@@ -23,12 +22,18 @@ data class StudentOverview(
     val balance: Double,
 )
 
+/** Результат создания ученика сразу с предметом — id обоих нужны, чтобы сразу привязать занятие. */
+data class NewStudentResult(val studentId: String, val enrollmentId: String)
+
 /**
  * Ученики, предметы (enrollments) и леджер оплат.
  *
  * Ключевое правило леджера: сумма начисления копируется в момент
  * «Проведено» и дальше живёт своей жизнью — смена ставки в enrollment
- * прошлое не переписывает.
+ * прошлое не переписывает. Способ оплаты не фиксирован на предмете —
+ * выбирается при каждом платеже: разовый (просто пополняет баланс),
+ * за месяц (все занятия этого месяца по предмету бесплатны) или
+ * пакетом N занятий (списывается по одному при «Проведено»).
  */
 class StudentsRepository(
     private val studentDao: StudentDao,
@@ -72,9 +77,8 @@ class StudentsRepository(
         contact: String?,
         subject: String,
         pricePerLesson: Double?,
-        billingMode: BillingMode,
         monthlyFee: Double?,
-    ): String {
+    ): NewStudentResult {
         val now = Clock.System.now()
         val studentId = UUID.randomUUID().toString()
         studentDao.upsertStudent(
@@ -89,32 +93,33 @@ class StudentsRepository(
                 updatedAt = now,
             ),
         )
-        addEnrollment(studentId, subject, pricePerLesson, billingMode, monthlyFee)
-        return studentId
+        val enrollmentId = addEnrollment(studentId, subject, pricePerLesson, monthlyFee)
+        return NewStudentResult(studentId, enrollmentId)
     }
 
     suspend fun addEnrollment(
         studentId: String,
         subject: String,
         pricePerLesson: Double?,
-        billingMode: BillingMode,
         monthlyFee: Double?,
-    ) {
+    ): String {
         val now = Clock.System.now()
+        val enrollmentId = UUID.randomUUID().toString()
         enrollmentDao.upsert(
             EnrollmentEntity(
-                id = UUID.randomUUID().toString(),
+                id = enrollmentId,
                 userId = EventRepository.LOCAL_USER_ID,
                 studentId = studentId,
                 subject = subject.trim(),
                 pricePerLesson = pricePerLesson,
-                billingMode = billingMode,
                 monthlyFee = monthlyFee,
+                remainingPackageLessons = 0,
                 active = true,
                 createdAt = now,
                 updatedAt = now,
             ),
         )
+        return enrollmentId
     }
 
     /** Меняет имя/контакт ученика. Ставки и история занятий не затрагиваются. */
@@ -144,7 +149,6 @@ class StudentsRepository(
         id: String,
         subject: String,
         pricePerLesson: Double?,
-        billingMode: BillingMode,
         monthlyFee: Double?,
     ) {
         val existing = enrollmentDao.getById(id) ?: return
@@ -152,7 +156,6 @@ class StudentsRepository(
             existing.copy(
                 subject = subject.trim(),
                 pricePerLesson = pricePerLesson,
-                billingMode = billingMode,
                 monthlyFee = monthlyFee,
                 updatedAt = Clock.System.now(),
             ),
@@ -164,7 +167,7 @@ class StudentsRepository(
         enrollmentDao.delete(id)
     }
 
-    /** Платёж от ученика. */
+    /** Разовый платёж: просто пополняет баланс, ни на что не влияет. */
     suspend fun addPayment(
         studentId: String,
         enrollmentId: String?,
@@ -183,21 +186,82 @@ class StudentsRepository(
                 direction = PaymentDirection.PAYMENT,
                 date = today(),
                 comment = comment?.trim()?.takeIf { it.isNotEmpty() },
+                coversMonth = null,
                 createdAt = Clock.System.now(),
             ),
         )
     }
 
     /**
-     * «Проведено»: запись занятия + начисление на сумму [chargeAmount]
-     * (0 — бесплатное/пробное: запись остаётся, начисления нет).
+     * «Оплата месяца»: [month] (любое число внутри месяца — берётся первое
+     * число) закрывается целиком для этого предмета — сколько бы занятий
+     * ни было, «Проведено» их не начислит.
+     */
+    suspend fun addMonthPayment(
+        studentId: String,
+        enrollmentId: String,
+        amount: Double,
+        month: LocalDate,
+        comment: String?,
+    ) {
+        if (amount <= 0) return
+        studentDao.upsertPayment(
+            PaymentEntity(
+                id = UUID.randomUUID().toString(),
+                userId = EventRepository.LOCAL_USER_ID,
+                studentId = studentId,
+                enrollmentId = enrollmentId,
+                lessonRecordId = null,
+                amount = amount,
+                direction = PaymentDirection.PAYMENT,
+                date = today(),
+                comment = comment?.trim()?.takeIf { it.isNotEmpty() },
+                coversMonth = LocalDate(month.year, month.monthNumber, 1),
+                createdAt = Clock.System.now(),
+            ),
+        )
+    }
+
+    /** «Оплата пакета N занятий»: счётчик пополняется, списывается по одному при «Проведено». */
+    suspend fun addPackagePayment(
+        studentId: String,
+        enrollmentId: String,
+        amount: Double,
+        lessonsCount: Int,
+        comment: String?,
+    ) {
+        if (amount <= 0 || lessonsCount <= 0) return
+        val now = Clock.System.now()
+        studentDao.upsertPayment(
+            PaymentEntity(
+                id = UUID.randomUUID().toString(),
+                userId = EventRepository.LOCAL_USER_ID,
+                studentId = studentId,
+                enrollmentId = enrollmentId,
+                lessonRecordId = null,
+                amount = amount,
+                direction = PaymentDirection.PAYMENT,
+                date = today(),
+                comment = comment?.trim()?.takeIf { it.isNotEmpty() },
+                coversMonth = null,
+                createdAt = now,
+            ),
+        )
+        enrollmentDao.addPackageLessons(enrollmentId, lessonsCount, now)
+    }
+
+    /**
+     * «Проведено»: запись занятия + начисление.
+     * [amountOverride] — ручная сумма (скидка/пробное, 0 — бесплатно);
+     * null — начислить по умолчанию: 0, если месяц оплачен целиком или
+     * есть остаток пакета (тогда он же списывается на 1), иначе ставка.
      */
     suspend fun markLessonDone(
         studentId: String,
         enrollmentId: String?,
         eventId: String?,
         date: LocalDate,
-        chargeAmount: Double,
+        amountOverride: Double?,
         topics: String? = null,
         homework: String? = null,
     ) {
@@ -217,6 +281,7 @@ class StudentsRepository(
                 createdAt = now,
             ),
         )
+        val chargeAmount = amountOverride ?: computeDefaultCharge(enrollmentId, date)
         if (chargeAmount > 0) {
             studentDao.upsertPayment(
                 PaymentEntity(
@@ -229,10 +294,23 @@ class StudentsRepository(
                     direction = PaymentDirection.CHARGE,
                     date = date,
                     comment = null,
+                    coversMonth = null,
                     createdAt = now,
                 ),
             )
         }
+    }
+
+    private suspend fun computeDefaultCharge(enrollmentId: String?, date: LocalDate): Double {
+        if (enrollmentId == null) return 0.0
+        val enrollment = enrollmentDao.getById(enrollmentId) ?: return 0.0
+        val monthStart = LocalDate(date.year, date.monthNumber, 1)
+        if (studentDao.countMonthCoverage(enrollmentId, monthStart) > 0) return 0.0
+        if (enrollment.remainingPackageLessons > 0) {
+            enrollmentDao.consumePackageLesson(enrollmentId, Clock.System.now())
+            return 0.0
+        }
+        return enrollment.pricePerLesson ?: 0.0
     }
 
     private fun today(): LocalDate =

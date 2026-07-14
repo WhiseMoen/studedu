@@ -166,6 +166,9 @@ fun TodayScreen(
             initialDate = state.selectedDate,
             enrollmentOptions = enrollmentOptions,
             onDismiss = { editorOpen = false },
+            onCreateStudent = { name, contact, subject, price, fee, onCreated ->
+                viewModel.createStudentForEvent(name, contact, subject, price, fee, onCreated)
+            },
             onSave = { title, comment, type, start, end, recurrence, enrollment ->
                 viewModel.createEvent(title, comment, type, start, end, recurrence, enrollment)
                 editorOpen = false

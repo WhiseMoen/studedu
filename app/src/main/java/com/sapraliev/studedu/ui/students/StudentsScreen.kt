@@ -46,7 +46,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sapraliev.studedu.data.local.entity.BillingMode
 import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
 import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
@@ -178,8 +177,8 @@ fun StudentsScreen(
             title = "Новый ученик",
             askName = true,
             onDismiss = { addStudentOpen = false },
-            onSave = { name, contact, subject, price, mode, fee ->
-                viewModel.addStudent(name, contact, subject, price, mode, fee)
+            onSave = { name, contact, subject, price, fee ->
+                viewModel.addStudent(name, contact, subject, price, fee)
                 addStudentOpen = false
             },
         )
@@ -347,7 +346,10 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                             Column(Modifier.weight(1f)) {
                                 Text(enrollment.subject, style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    enrollmentRateLabel(enrollment),
+                                    enrollmentRateLabel(
+                                        enrollment,
+                                        monthCovered = enrollment.id in detail.monthCoveredEnrollmentIds,
+                                    ),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -451,9 +453,18 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
 
     if (paymentOpen) {
         PaymentDialog(
+            enrollments = detail.enrollments,
             onDismiss = { paymentOpen = false },
-            onSave = { amount, comment ->
+            onSaveOneOff = { amount, comment ->
                 viewModel.addPayment(amount, comment)
+                paymentOpen = false
+            },
+            onSaveMonth = { enrollmentId, amount, comment ->
+                viewModel.addMonthPayment(enrollmentId, amount, comment)
+                paymentOpen = false
+            },
+            onSavePackage = { enrollmentId, amount, lessonsCount, comment ->
+                viewModel.addPackagePayment(enrollmentId, amount, lessonsCount, comment)
                 paymentOpen = false
             },
         )
@@ -463,8 +474,8 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
             title = "Новый предмет",
             askName = false,
             onDismiss = { enrollmentOpen = false },
-            onSave = { _, _, subject, price, mode, fee ->
-                viewModel.addEnrollment(subject, price, mode, fee)
+            onSave = { _, _, subject, price, fee ->
+                viewModel.addEnrollment(subject, price, fee)
                 enrollmentOpen = false
             },
         )
@@ -504,11 +515,10 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
             askName = false,
             initialSubject = enrollment.subject,
             initialPrice = enrollment.pricePerLesson,
-            initialMode = enrollment.billingMode,
             initialMonthlyFee = enrollment.monthlyFee,
             onDismiss = { editingEnrollment = null },
-            onSave = { _, _, subject, price, mode, fee ->
-                viewModel.updateEnrollment(enrollment.id, subject, price, mode, fee)
+            onSave = { _, _, subject, price, fee ->
+                viewModel.updateEnrollment(enrollment.id, subject, price, fee)
                 editingEnrollment = null
             },
         )
@@ -608,7 +618,11 @@ private fun BalanceText(balance: Double) {
     )
 }
 
-/** Диалог создания ученика (askName) или добавления предмета. */
+/**
+ * Диалог создания ученика (askName) или добавления/изменения предмета.
+ * Ставка за занятие и сумма за месяц — оба поля всегда видны и независимы
+ * друг от друга: способ оплаты выбирается не здесь, а в момент платежа.
+ */
 @Composable
 private fun StudentEditorDialog(
     title: String,
@@ -619,19 +633,16 @@ private fun StudentEditorDialog(
         contact: String?,
         subject: String,
         price: Double?,
-        mode: BillingMode,
         monthlyFee: Double?,
     ) -> Unit,
     initialSubject: String = "",
     initialPrice: Double? = null,
-    initialMode: BillingMode = BillingMode.PER_LESSON,
     initialMonthlyFee: Double? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf(initialSubject) }
     var priceText by remember { mutableStateOf(initialPrice?.let { formatEditableAmount(it) } ?: "") }
-    var mode by remember { mutableStateOf(initialMode) }
     var feeText by remember { mutableStateOf(initialMonthlyFee?.let { formatEditableAmount(it) } ?: "") }
 
     AlertDialog(
@@ -659,38 +670,18 @@ private fun StudentEditorDialog(
                     label = { Text("Предмет") },
                     singleLine = true,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FilterChip(
-                        selected = mode == BillingMode.PER_LESSON,
-                        onClick = { mode = BillingMode.PER_LESSON },
-                        label = { Text("Поурочно") },
-                    )
-                    FilterChip(
-                        selected = mode == BillingMode.PACKAGE,
-                        onClick = { mode = BillingMode.PACKAGE },
-                        label = { Text("Пакет") },
-                    )
-                    FilterChip(
-                        selected = mode == BillingMode.MONTHLY,
-                        onClick = { mode = BillingMode.MONTHLY },
-                        label = { Text("Фикс/мес") },
-                    )
-                }
-                if (mode == BillingMode.MONTHLY) {
-                    OutlinedTextField(
-                        value = feeText,
-                        onValueChange = { feeText = it.filterMoney() },
-                        label = { Text("Сумма в месяц, ₽") },
-                        singleLine = true,
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = priceText,
-                        onValueChange = { priceText = it.filterMoney() },
-                        label = { Text("Ставка за занятие, ₽") },
-                        singleLine = true,
-                    )
-                }
+                OutlinedTextField(
+                    value = priceText,
+                    onValueChange = { priceText = it.filterMoney() },
+                    label = { Text("Ставка за занятие, ₽") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = feeText,
+                    onValueChange = { feeText = it.filterMoney() },
+                    label = { Text("Обычная сумма за месяц, ₽ (необязательно)") },
+                    singleLine = true,
+                )
             }
         },
         confirmButton = {
@@ -702,7 +693,6 @@ private fun StudentEditorDialog(
                         contact.takeIf { it.isNotBlank() },
                         subject,
                         priceText.toDoubleOrNull(),
-                        mode,
                         feeText.toDoubleOrNull(),
                     )
                 },
@@ -714,12 +704,27 @@ private fun StudentEditorDialog(
     )
 }
 
+private enum class PaymentMode { ONE_OFF, MONTH, PACKAGE }
+
+/**
+ * Способ оплаты выбирается здесь, а не на предмете: разовый (просто
+ * пополняет баланс), за месяц (все занятия этого предмета в текущем
+ * просматриваемом месяце — бесплатны) или пакетом N занятий (списывается
+ * по одному при «Проведено»). Месяц/пакет требуют выбора предмета, если
+ * их у ученика больше одного.
+ */
 @Composable
 private fun PaymentDialog(
+    enrollments: List<EnrollmentEntity>,
     onDismiss: () -> Unit,
-    onSave: (amount: Double, comment: String?) -> Unit,
+    onSaveOneOff: (amount: Double, comment: String?) -> Unit,
+    onSaveMonth: (enrollmentId: String, amount: Double, comment: String?) -> Unit,
+    onSavePackage: (enrollmentId: String, amount: Double, lessonsCount: Int, comment: String?) -> Unit,
 ) {
+    var mode by remember { mutableStateOf(PaymentMode.ONE_OFF) }
+    var selectedEnrollmentId by remember { mutableStateOf(enrollments.firstOrNull()?.id) }
     var amountText by remember { mutableStateOf("") }
+    var lessonsText by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -727,12 +732,58 @@ private fun PaymentDialog(
         title = { Text("Платёж от ученика") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = mode == PaymentMode.ONE_OFF,
+                        onClick = { mode = PaymentMode.ONE_OFF },
+                        label = { Text("Разовый") },
+                    )
+                    FilterChip(
+                        selected = mode == PaymentMode.MONTH,
+                        onClick = { mode = PaymentMode.MONTH },
+                        label = { Text("Месяц") },
+                        enabled = enrollments.isNotEmpty(),
+                    )
+                    FilterChip(
+                        selected = mode == PaymentMode.PACKAGE,
+                        onClick = { mode = PaymentMode.PACKAGE },
+                        label = { Text("Пакет") },
+                        enabled = enrollments.isNotEmpty(),
+                    )
+                }
+                if (mode != PaymentMode.ONE_OFF) {
+                    if (enrollments.isEmpty()) {
+                        Text(
+                            "Сначала добавь предмет ученику кнопкой «Предмет +».",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (enrollments.size > 1) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            enrollments.forEach { enrollment ->
+                                FilterChip(
+                                    selected = selectedEnrollmentId == enrollment.id,
+                                    onClick = { selectedEnrollmentId = enrollment.id },
+                                    label = { Text(enrollment.subject) },
+                                )
+                            }
+                        }
+                    }
+                }
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it.filterMoney() },
                     label = { Text("Сумма, ₽") },
                     singleLine = true,
                 )
+                if (mode == PaymentMode.PACKAGE) {
+                    OutlinedTextField(
+                        value = lessonsText,
+                        onValueChange = { lessonsText = it.filter { c -> c.isDigit() }.take(3) },
+                        label = { Text("Занятий в пакете") },
+                        singleLine = true,
+                    )
+                }
                 OutlinedTextField(
                     value = comment,
                     onValueChange = { comment = it },
@@ -745,7 +796,20 @@ private fun PaymentDialog(
             TextButton(
                 onClick = {
                     val amount = amountText.toDoubleOrNull() ?: return@TextButton
-                    if (amount > 0) onSave(amount, comment.takeIf { it.isNotBlank() })
+                    if (amount <= 0) return@TextButton
+                    val commentValue = comment.takeIf { it.isNotBlank() }
+                    when (mode) {
+                        PaymentMode.ONE_OFF -> onSaveOneOff(amount, commentValue)
+                        PaymentMode.MONTH -> {
+                            val enrollmentId = selectedEnrollmentId ?: return@TextButton
+                            onSaveMonth(enrollmentId, amount, commentValue)
+                        }
+                        PaymentMode.PACKAGE -> {
+                            val enrollmentId = selectedEnrollmentId ?: return@TextButton
+                            val lessonsCount = lessonsText.toIntOrNull() ?: return@TextButton
+                            onSavePackage(enrollmentId, amount, lessonsCount, commentValue)
+                        }
+                    }
                 },
             ) { Text("Сохранить") }
         },
@@ -798,10 +862,16 @@ private fun EditStudentDialog(
     )
 }
 
-private fun enrollmentRateLabel(enrollment: EnrollmentEntity): String = when (enrollment.billingMode) {
-    BillingMode.MONTHLY -> enrollment.monthlyFee?.let { "${formatMoney(it)}/мес" } ?: "фикс/мес — ставка не задана"
-    BillingMode.PACKAGE -> enrollment.pricePerLesson?.let { "${formatMoney(it)}/занятие · пакет" } ?: "пакет"
-    BillingMode.PER_LESSON -> enrollment.pricePerLesson?.let { "${formatMoney(it)}/занятие" } ?: "ставка не задана"
+private fun enrollmentRateLabel(enrollment: EnrollmentEntity, monthCovered: Boolean): String {
+    val parts = buildList {
+        add(enrollment.pricePerLesson?.let { "${formatMoney(it)}/занятие" } ?: "ставка не задана")
+        enrollment.monthlyFee?.let { add("${formatMoney(it)}/мес") }
+        if (enrollment.remainingPackageLessons > 0) {
+            add("осталось ${enrollment.remainingPackageLessons} по пакету")
+        }
+        if (monthCovered) add("месяц оплачен")
+    }
+    return parts.joinToString(" · ")
 }
 
 private fun formatEditableAmount(amount: Double): String =

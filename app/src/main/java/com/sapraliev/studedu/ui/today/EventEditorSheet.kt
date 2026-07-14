@@ -80,6 +80,14 @@ fun EventEditorSheet(
     initialDate: LocalDate,
     enrollmentOptions: List<EnrollmentOption>,
     onDismiss: () -> Unit,
+    onCreateStudent: (
+        name: String,
+        contact: String?,
+        subject: String,
+        price: Double?,
+        monthlyFee: Double?,
+        onCreated: (EnrollmentOption) -> Unit,
+    ) -> Unit,
     onSave: (
         title: String,
         comment: String?,
@@ -111,6 +119,7 @@ fun EventEditorSheet(
 
     var datePickerFor by remember { mutableStateOf<String?>(null) } // "date" | "until"
     var timePickerFor by remember { mutableStateOf<String?>(null) } // "start" | "end"
+    var newStudentDialogOpen by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -158,24 +167,26 @@ fun EventEditorSheet(
 
             if (type == EventType.LESSON) {
                 Text("Ученик и предмет", style = MaterialTheme.typography.labelLarge)
-                if (enrollmentOptions.isEmpty()) {
-                    Text(
-                        "Сначала добавь ученика на вкладке «Ученики» — тогда занятие привяжется к оплатам.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        enrollmentOptions.forEach { option ->
-                            FilterChip(
-                                selected = selectedEnrollment?.enrollmentId == option.enrollmentId,
-                                onClick = {
-                                    selectedEnrollment = option
-                                    if (title.isBlank()) title = option.label
-                                },
-                                label = { Text(option.label) },
-                            )
-                        }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    enrollmentOptions.forEach { option ->
+                        FilterChip(
+                            selected = selectedEnrollment?.enrollmentId == option.enrollmentId,
+                            onClick = {
+                                selectedEnrollment = option
+                                if (title.isBlank()) title = option.label
+                            },
+                            label = { Text(option.label) },
+                        )
                     }
+                    FilterChip(
+                        selected = false,
+                        onClick = { newStudentDialogOpen = true },
+                        label = { Text("+ Новый ученик") },
+                    )
                 }
             }
 
@@ -361,6 +372,94 @@ fun EventEditorSheet(
             },
         )
     }
+
+    if (newStudentDialogOpen) {
+        NewStudentInlineDialog(
+            onDismiss = { newStudentDialogOpen = false },
+            onSave = { name, contact, subject, price, fee ->
+                onCreateStudent(name, contact, subject, price, fee) { created ->
+                    selectedEnrollment = created
+                    if (title.isBlank()) title = created.label
+                }
+                newStudentDialogOpen = false
+            },
+        )
+    }
+}
+
+/** Мини-форма ученика прямо из создания занятия — не нужно прерываться на вкладку «Ученики». */
+@Composable
+private fun NewStudentInlineDialog(
+    onDismiss: () -> Unit,
+    onSave: (
+        name: String,
+        contact: String?,
+        subject: String,
+        price: Double?,
+        monthlyFee: Double?,
+    ) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var contact by remember { mutableStateOf("") }
+    var subject by remember { mutableStateOf("") }
+    var priceText by remember { mutableStateOf("") }
+    var feeText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Новый ученик") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Имя") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = contact,
+                    onValueChange = { contact = it },
+                    label = { Text("Контакт (телефон/tg)") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = subject,
+                    onValueChange = { subject = it },
+                    label = { Text("Предмет") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = priceText,
+                    onValueChange = { priceText = it.filter { c -> c.isDigit() || c == '.' }.take(9) },
+                    label = { Text("Ставка за занятие, ₽") },
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = feeText,
+                    onValueChange = { feeText = it.filter { c -> c.isDigit() || c == '.' }.take(9) },
+                    label = { Text("Сумма за месяц, ₽ (необязательно)") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isBlank() || subject.isBlank()) return@TextButton
+                    onSave(
+                        name,
+                        contact.takeIf { it.isNotBlank() },
+                        subject,
+                        priceText.toDoubleOrNull(),
+                        feeText.toDoubleOrNull(),
+                    )
+                },
+            ) { Text("Создать") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        },
+    )
 }
 
 private fun countOrNull(option: EndOption, text: String): Int? =

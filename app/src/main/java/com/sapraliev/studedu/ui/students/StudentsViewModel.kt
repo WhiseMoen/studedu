@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sapraliev.studedu.data.local.AppDatabase
-import com.sapraliev.studedu.data.local.entity.BillingMode
 import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
 import com.sapraliev.studedu.data.local.entity.StudentEntity
@@ -65,6 +64,8 @@ data class StudentDetailState(
     val balance: Double,
     val prepaidLessons: Int?,
     val summary: MonthSummary,
+    /** Предметы, у которых просматриваемый месяц ([MonthSummary.monthStart]) оплачен целиком. */
+    val monthCoveredEnrollmentIds: Set<String> = emptySet(),
 )
 
 data class StudentsUiState(
@@ -141,12 +142,17 @@ class StudentsViewModel(
                 } else {
                     null
                 }
+                val monthCovered = allPayments
+                    .filter { it.coversMonth == monthStart }
+                    .mapNotNull { it.enrollmentId }
+                    .toSet()
 
                 StudentDetailState(
                     student = student,
                     enrollments = enrollments,
                     balance = balance,
                     prepaidLessons = prepaid,
+                    monthCoveredEnrollmentIds = monthCovered,
                     summary = MonthSummary(
                         monthStart = monthStart,
                         lessonsTotal = lessons.size,
@@ -192,20 +198,19 @@ class StudentsViewModel(
         contact: String?,
         subject: String,
         price: Double?,
-        mode: BillingMode,
         monthlyFee: Double?,
     ) {
         if (name.isBlank() || subject.isBlank()) return
         viewModelScope.launch {
-            repository.addStudent(name, contact, subject, price, mode, monthlyFee)
+            repository.addStudent(name, contact, subject, price, monthlyFee)
         }
     }
 
-    fun addEnrollment(subject: String, price: Double?, mode: BillingMode, monthlyFee: Double?) {
+    fun addEnrollment(subject: String, price: Double?, monthlyFee: Double?) {
         val studentId = selectedStudentId.value ?: return
         if (subject.isBlank()) return
         viewModelScope.launch {
-            repository.addEnrollment(studentId, subject, price, mode, monthlyFee)
+            repository.addEnrollment(studentId, subject, price, monthlyFee)
         }
     }
 
@@ -234,10 +239,10 @@ class StudentsViewModel(
         }
     }
 
-    fun updateEnrollment(id: String, subject: String, price: Double?, mode: BillingMode, monthlyFee: Double?) {
+    fun updateEnrollment(id: String, subject: String, price: Double?, monthlyFee: Double?) {
         if (subject.isBlank()) return
         viewModelScope.launch {
-            repository.updateEnrollment(id, subject, price, mode, monthlyFee)
+            repository.updateEnrollment(id, subject, price, monthlyFee)
         }
     }
 
@@ -247,11 +252,34 @@ class StudentsViewModel(
         }
     }
 
+    /** Разовый платёж: не привязан к предмету, просто пополняет общий баланс. */
     fun addPayment(amount: Double, comment: String?) {
         val studentId = selectedStudentId.value ?: return
         viewModelScope.launch {
             repository.addPayment(studentId, enrollmentId = null, amount = amount, comment = comment)
         }
+    }
+
+    /** «Оплата месяца» по конкретному предмету — освобождает все его занятия в текущем просматриваемом месяце. */
+    fun addMonthPayment(enrollmentId: String, amount: Double, comment: String?) {
+        val studentId = selectedStudentId.value ?: return
+        val monthStart = detailFlowMonthStart() ?: return
+        viewModelScope.launch {
+            repository.addMonthPayment(studentId, enrollmentId, amount, monthStart, comment)
+        }
+    }
+
+    /** «Оплата пакета N занятий» по конкретному предмету. */
+    fun addPackagePayment(enrollmentId: String, amount: Double, lessonsCount: Int, comment: String?) {
+        val studentId = selectedStudentId.value ?: return
+        viewModelScope.launch {
+            repository.addPackagePayment(studentId, enrollmentId, amount, lessonsCount, comment)
+        }
+    }
+
+    private fun detailFlowMonthStart(): LocalDate? {
+        val today = Clock.System.todayIn(zone)
+        return LocalDate(today.year, today.monthNumber, 1).minus(DatePeriod(months = monthOffset.value))
     }
 
     companion object {

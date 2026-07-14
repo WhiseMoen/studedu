@@ -87,6 +87,12 @@ interface StudentDao {
     @Delete
     suspend fun deletePayment(payment: PaymentEntity)
 
+    /** «Месяц оплачен» для этого предмета — занятия в нём не начисляются. */
+    @Query(
+        "SELECT COUNT(*) FROM payments WHERE enrollment_id = :enrollmentId AND covers_month = :month"
+    )
+    suspend fun countMonthCoverage(enrollmentId: String, month: LocalDate): Int
+
     // ---------- статистика ----------
 
     /** Полные балансы всех учеников одним запросом (для списка). */

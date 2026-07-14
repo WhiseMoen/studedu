@@ -44,7 +44,7 @@ import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
         EnrollmentEntity::class,
         ScheduledReminderEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -172,6 +172,51 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v4 → v5: способ оплаты больше не фиксирован на enrollment —
+         * выбирается в момент платежа. Ставка (`price_per_lesson`) и
+         * подсказка суммы за месяц (`monthly_fee`) остаются, `billing_mode`
+         * уходит; добавляется счётчик оплаченных пакетом занятий и отметка
+         * «за какой месяц уже заплачено целиком» на платеже.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE `enrollments_new` (
+                        `id` TEXT NOT NULL,
+                        `user_id` TEXT NOT NULL,
+                        `student_id` TEXT NOT NULL,
+                        `subject` TEXT NOT NULL,
+                        `price_per_lesson` REAL,
+                        `monthly_fee` REAL,
+                        `remaining_package_lessons` INTEGER NOT NULL DEFAULT 0,
+                        `active` INTEGER NOT NULL,
+                        `created_at` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`student_id`) REFERENCES `students`(`id`)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "INSERT INTO enrollments_new " +
+                        "(id, user_id, student_id, subject, price_per_lesson, monthly_fee, " +
+                        "remaining_package_lessons, active, created_at, updated_at) " +
+                        "SELECT id, user_id, student_id, subject, price_per_lesson, monthly_fee, " +
+                        "0, active, created_at, updated_at FROM enrollments"
+                )
+                db.execSQL("DROP TABLE `enrollments`")
+                db.execSQL("ALTER TABLE `enrollments_new` RENAME TO `enrollments`")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_enrollments_student_id` " +
+                        "ON `enrollments` (`student_id`)"
+                )
+                db.execSQL("ALTER TABLE `payments` ADD COLUMN `covers_month` TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -179,7 +224,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "studedu.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

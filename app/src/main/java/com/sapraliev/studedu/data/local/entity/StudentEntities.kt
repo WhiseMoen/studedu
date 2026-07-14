@@ -89,5 +89,11 @@ data class PaymentEntity(
     val direction: PaymentDirection,
     val date: LocalDate,
     val comment: String? = null,
+    /**
+     * Первое число месяца, за который заплачено целиком («оплата месяца»):
+     * занятия по этому enrollment в этом месяце не начисляются, сколько бы
+     * их ни было. Null — обычный разовый платёж/начисление.
+     */
+    @ColumnInfo(name = "covers_month") val coversMonth: LocalDate? = null,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
 )
