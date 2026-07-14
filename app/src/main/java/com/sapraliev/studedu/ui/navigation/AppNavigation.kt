@@ -20,6 +20,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sapraliev.studedu.R
 import com.sapraliev.studedu.ui.settings.SettingsScreen
+import com.sapraliev.studedu.ui.stats.StatsScreen
 import com.sapraliev.studedu.ui.tasks.TasksScreen
 import com.sapraliev.studedu.ui.students.StudentsScreen
 import com.sapraliev.studedu.ui.today.TodayScreen
@@ -79,7 +80,12 @@ fun AppNavigation() {
             composable(AppTab.TODAY.route) { TodayScreen() }
             composable(AppTab.TASKS.route) { TasksScreen() }
             composable(AppTab.STUDENTS.route) { StudentsScreen() }
-            composable(AppTab.SETTINGS.route) { SettingsScreen() }
+            composable(AppTab.SETTINGS.route) {
+                SettingsScreen(onOpenStats = { navController.navigate("stats") })
+            }
+            composable("stats") {
+                StatsScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }

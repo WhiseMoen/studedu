@@ -147,6 +147,29 @@ interface StudentDao {
         """
     )
     fun observeTopPaying(from: LocalDate, to: LocalDate, limit: Int): Flow<List<StudentPaid>>
+
+    /** Начислено и получено за период — по каждому ученику (экран «Статистика»). */
+    @Query(
+        """
+        SELECT student_id,
+            COALESCE(SUM(CASE WHEN direction = 'charge' THEN amount END), 0) AS charged,
+            COALESCE(SUM(CASE WHEN direction = 'payment' THEN amount END), 0) AS paid
+        FROM payments WHERE date BETWEEN :from AND :to
+        GROUP BY student_id
+        """
+    )
+    fun observePeriodTotalsByStudent(from: LocalDate, to: LocalDate): Flow<List<StudentPeriodTotals>>
+
+    /** Проведено занятий за период — по каждому ученику (экран «Статистика»). */
+    @Query(
+        """
+        SELECT student_id, COUNT(*) AS count
+        FROM lesson_records
+        WHERE attended = 1 AND date BETWEEN :from AND :to
+        GROUP BY student_id
+        """
+    )
+    fun observeLessonsCountByStudent(from: LocalDate, to: LocalDate): Flow<List<StudentLessonCount>>
 }
 
 /** Итоги периода: начислено/получено. */
@@ -159,4 +182,17 @@ data class PeriodTotals(
 data class StudentPaid(
     @ColumnInfo(name = "student_id") val studentId: String,
     val paid: Double,
+)
+
+/** Проекция «ученик → начислено/получено за период» (экран «Статистика»). */
+data class StudentPeriodTotals(
+    @ColumnInfo(name = "student_id") val studentId: String,
+    val charged: Double,
+    val paid: Double,
+)
+
+/** Проекция «ученик → занятий проведено за период» (экран «Статистика»). */
+data class StudentLessonCount(
+    @ColumnInfo(name = "student_id") val studentId: String,
+    val count: Int,
 )

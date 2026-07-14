@@ -62,6 +62,7 @@ import kotlinx.datetime.toLocalDateTime
 
 @Composable
 fun SettingsScreen(
+    onOpenStats: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory()),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -306,7 +307,7 @@ fun SettingsScreen(
 
         // ---------- статистика ----------
         item {
-            SettingsCard(title = "Статистика по ученикам") {
+            SettingsCard(title = "Статистика по ученикам", onClick = onOpenStats) {
                 StatsRow(
                     "Этот месяц",
                     state.stats.monthPaid,
@@ -397,24 +398,43 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsCard(title: String, content: @Composable () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+private fun SettingsCard(
+    title: String,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(20.dp)
+    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    val inner = @Composable {
         Column(
             Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onClick != null) {
+                    Icon(
+                        FeatherIcons.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             content()
         }
+    }
+    if (onClick != null) {
+        Card(onClick = onClick, shape = shape, colors = colors) { inner() }
+    } else {
+        Card(shape = shape, colors = colors) { inner() }
     }
 }
 
