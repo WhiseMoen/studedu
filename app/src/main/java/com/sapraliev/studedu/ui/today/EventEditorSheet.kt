@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -72,7 +74,7 @@ private val weekdayCodes = listOf("MO", "TU", "WE", "TH", "FR", "SA", "SU")
  * тип, правило повторения. Правило хранится как RRULE-модель,
  * копии строк не создаются.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EventEditorSheet(
     initialDate: LocalDate,
@@ -206,7 +208,11 @@ fun EventEditorSheet(
             }
 
             if (repeat == RepeatOption.WEEKLY || repeat == RepeatOption.BIWEEKLY) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     DayOfWeek.values().take(7).forEachIndexed { index, day ->
                         FilterChip(
                             selected = index in weekdays,
@@ -214,7 +220,7 @@ fun EventEditorSheet(
                                 weekdays =
                                     if (index in weekdays) weekdays - index else weekdays + index
                             },
-                            label = { Text(RussianDates.weekdayShort(day)) },
+                            label = { Text(RussianDates.weekdayShort(day), maxLines = 1) },
                         )
                     }
                 }
