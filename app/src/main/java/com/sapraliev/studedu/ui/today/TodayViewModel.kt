@@ -123,7 +123,7 @@ class TodayViewModel(
 
     /** Опции «ученик — предмет» для формы создания занятия. */
     val enrollmentOptions: StateFlow<List<EnrollmentOption>> =
-        studentsRepository.observeOverview()
+        studentsRepository.observeOverview(activeOnly = true)
             .map { overviews ->
                 overviews.flatMap { overview ->
                     overview.enrollments.map { enrollment ->

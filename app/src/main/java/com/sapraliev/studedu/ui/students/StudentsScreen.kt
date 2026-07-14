@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,8 @@ import compose.icons.feathericons.ArrowRight
 import compose.icons.feathericons.Edit2
 import compose.icons.feathericons.Plus
 import compose.icons.feathericons.Trash2
+import compose.icons.feathericons.UserCheck
+import compose.icons.feathericons.UserMinus
 
 @Composable
 fun StudentsScreen(
@@ -96,11 +99,23 @@ fun StudentsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 item {
-                    Text(
-                        "Ученики",
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 20.dp, bottom = 4.dp),
+                    ) {
+                        Text(
+                            "Ученики",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        FilterChip(
+                            selected = state.showInactive,
+                            onClick = { viewModel.setShowInactive(!state.showInactive) },
+                            label = { Text("Неактивные") },
+                        )
+                    }
                 }
                 if (state.students.isEmpty()) {
                     item {
@@ -122,12 +137,18 @@ fun StudentsScreen(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .alpha(if (overview.student.active) 1f else 0.5f),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    overview.student.name,
+                                    if (overview.student.active) {
+                                        overview.student.name
+                                    } else {
+                                        "${overview.student.name} · не активен"
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                 )
@@ -208,11 +229,30 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    if (!detail.student.active) {
+                        Text(
+                            "не активен",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ConflictRed,
+                        )
+                    }
                 }
                 IconButton(onClick = { editStudentOpen = true }) {
                     Icon(
                         FeatherIcons.Edit2,
                         contentDescription = "Изменить ученика",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = { viewModel.setStudentActive(!detail.student.active) }) {
+                    Icon(
+                        if (detail.student.active) FeatherIcons.UserMinus else FeatherIcons.UserCheck,
+                        contentDescription = if (detail.student.active) {
+                            "Сделать неактивным"
+                        } else {
+                            "Сделать активным"
+                        },
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

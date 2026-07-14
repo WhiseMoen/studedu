@@ -10,6 +10,7 @@ import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 
 /** Проекция «ученик → полный баланс» (Σ платежей − Σ начислений). */
@@ -43,6 +44,10 @@ interface StudentDao {
 
     @Query("DELETE FROM students WHERE id = :id")
     suspend fun deleteStudentById(id: String)
+
+    /** «Не активен» — прячет ученика из «Учеников» и расписания, статистика сохраняется. */
+    @Query("UPDATE students SET active = :active, updated_at = :now WHERE id = :id")
+    suspend fun setActive(id: String, active: Boolean, now: Instant)
 
     // ---------- записи занятий ----------
 

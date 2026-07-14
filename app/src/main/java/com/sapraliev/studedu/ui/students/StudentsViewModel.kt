@@ -70,6 +70,7 @@ data class StudentDetailState(
 data class StudentsUiState(
     val students: List<StudentOverview> = emptyList(),
     val detail: StudentDetailState? = null,
+    val showInactive: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -83,6 +84,12 @@ class StudentsViewModel(
 
     /** 0 — текущий месяц, 1 — прошлый и т.д. */
     private val monthOffset = MutableStateFlow(0)
+
+    private val showInactive = MutableStateFlow(false)
+
+    private val overviewFlow = showInactive.flatMapLatest { includeInactive ->
+        repository.observeOverview(activeOnly = !includeInactive)
+    }
 
     private val detailFlow = combine(selectedStudentId, monthOffset) { id, offset -> id to offset }
         .flatMapLatest { (id, offset) ->
@@ -159,9 +166,13 @@ class StudentsViewModel(
         }
 
     val uiState: StateFlow<StudentsUiState> =
-        combine(repository.observeOverview(), detailFlow) { students, detail ->
-            StudentsUiState(students = students, detail = detail)
+        combine(overviewFlow, detailFlow, showInactive) { students, detail, showInactiveValue ->
+            StudentsUiState(students = students, detail = detail, showInactive = showInactiveValue)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudentsUiState())
+
+    fun setShowInactive(value: Boolean) {
+        showInactive.value = value
+    }
 
     fun openStudent(id: String) {
         monthOffset.value = 0
@@ -212,6 +223,14 @@ class StudentsViewModel(
         viewModelScope.launch {
             repository.deleteStudent(studentId)
             closeStudent()
+        }
+    }
+
+    /** «Не активен»: пропадает из «Учеников» и расписания, статистика остаётся. */
+    fun setStudentActive(active: Boolean) {
+        val studentId = selectedStudentId.value ?: return
+        viewModelScope.launch {
+            repository.setStudentActive(studentId, active)
         }
     }
 

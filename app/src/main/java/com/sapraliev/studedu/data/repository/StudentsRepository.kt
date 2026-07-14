@@ -35,8 +35,9 @@ class StudentsRepository(
     private val enrollmentDao: EnrollmentDao,
 ) {
 
-    fun observeOverview(): Flow<List<StudentOverview>> = combine(
-        studentDao.observeAllStudents(),
+    /** [activeOnly] прячет учеников со статусом «не активен» (экран «Ученики», выбор в расписании). */
+    fun observeOverview(activeOnly: Boolean): Flow<List<StudentOverview>> = combine(
+        if (activeOnly) studentDao.observeActiveStudents() else studentDao.observeAllStudents(),
         enrollmentDao.observeAllActive(),
         studentDao.observeBalances(),
     ) { students, enrollments, balances ->
@@ -131,6 +132,11 @@ class StudentsRepository(
     /** Удаляет ученика целиком: занятия и платежи каскадно удаляются по FK. */
     suspend fun deleteStudent(id: String) {
         studentDao.deleteStudentById(id)
+    }
+
+    /** «Не активен» вместо удаления: пропадает из «Учеников» и расписания, статистика остаётся. */
+    suspend fun setStudentActive(id: String, active: Boolean) {
+        studentDao.setActive(id, active, Clock.System.now())
     }
 
     /** Меняет предмет/ставку. История начислений не переписывается — суммы уже скопированы в payments. */
