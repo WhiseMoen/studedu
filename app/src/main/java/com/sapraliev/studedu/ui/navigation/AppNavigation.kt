@@ -1,6 +1,8 @@
 package com.sapraliev.studedu.ui.navigation
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -12,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -29,6 +32,29 @@ import compose.icons.feathericons.Calendar
 import compose.icons.feathericons.CheckSquare
 import compose.icons.feathericons.Settings
 import compose.icons.feathericons.Users
+
+/**
+ * Порядок вкладок для перелистывания: переход к вкладке правее по списку
+ * едет влево (как страница вперёд), к вкладке левее — вправо (назад).
+ * «stats» логически «глубже» настроек — открывается тем же перелистыванием.
+ */
+private val screenOrder = listOf("today", "tasks", "students", "settings", "stats")
+
+private fun screenIndex(route: String?): Int = screenOrder.indexOf(route).coerceAtLeast(0)
+
+private val slideDirection: AnimatedContentTransitionScope<NavBackStackEntry>.() -> AnimatedContentTransitionScope.SlideDirection = {
+    val from = screenIndex(initialState.destination.route)
+    val to = screenIndex(targetState.destination.route)
+    if (to >= from) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right
+}
+
+private val slideEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> androidx.compose.animation.EnterTransition = {
+    slideIntoContainer(slideDirection(this), animationSpec = tween(320))
+}
+
+private val slideExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> androidx.compose.animation.ExitTransition = {
+    slideOutOfContainer(slideDirection(this), animationSpec = tween(320))
+}
 
 /** Четыре вкладки нижней навигации. */
 enum class AppTab(
@@ -77,13 +103,43 @@ fun AppNavigation() {
             startDestination = AppTab.TODAY.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(AppTab.TODAY.route) { TodayScreen() }
-            composable(AppTab.TASKS.route) { TasksScreen() }
-            composable(AppTab.STUDENTS.route) { StudentsScreen() }
-            composable(AppTab.SETTINGS.route) {
+            composable(
+                AppTab.TODAY.route,
+                enterTransition = slideEnter,
+                exitTransition = slideExit,
+                popEnterTransition = slideEnter,
+                popExitTransition = slideExit,
+            ) { TodayScreen() }
+            composable(
+                AppTab.TASKS.route,
+                enterTransition = slideEnter,
+                exitTransition = slideExit,
+                popEnterTransition = slideEnter,
+                popExitTransition = slideExit,
+            ) { TasksScreen() }
+            composable(
+                AppTab.STUDENTS.route,
+                enterTransition = slideEnter,
+                exitTransition = slideExit,
+                popEnterTransition = slideEnter,
+                popExitTransition = slideExit,
+            ) { StudentsScreen() }
+            composable(
+                AppTab.SETTINGS.route,
+                enterTransition = slideEnter,
+                exitTransition = slideExit,
+                popEnterTransition = slideEnter,
+                popExitTransition = slideExit,
+            ) {
                 SettingsScreen(onOpenStats = { navController.navigate("stats") })
             }
-            composable("stats") {
+            composable(
+                "stats",
+                enterTransition = slideEnter,
+                exitTransition = slideExit,
+                popEnterTransition = slideEnter,
+                popExitTransition = slideExit,
+            ) {
                 StatsScreen(onBack = { navController.popBackStack() })
             }
         }

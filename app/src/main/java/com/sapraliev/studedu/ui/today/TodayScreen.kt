@@ -4,8 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -57,6 +57,7 @@ import com.sapraliev.studedu.data.local.entity.EventType
 import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.EventPalette
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
+import com.sapraliev.studedu.ui.theme.NeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
 import compose.icons.FeatherIcons
@@ -86,18 +87,10 @@ fun TodayScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            val interactionSource = remember { MutableInteractionSource() }
-            val pressed by interactionSource.collectIsPressedAsState()
             FloatingActionButton(
                 onClick = { editorOpen = true },
                 shape = CircleShape,
                 containerColor = MaterialTheme.colorScheme.primary,
-                interactionSource = interactionSource,
-                modifier = Modifier.neumorphic(
-                    LocalNeuShadows.current,
-                    cornerRadius = 28.dp,
-                    pressed = pressed,
-                ),
             ) {
                 Icon(FeatherIcons.Plus, contentDescription = "Добавить событие")
             }
@@ -247,12 +240,9 @@ private fun HeroSection(state: TodayUiState, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.background,
             modifier = Modifier.neumorphic(shadows, cornerRadius = 32.dp, blur = 20.dp, offset = 8.dp),
         ) {
-            Text(
+            EmbossedClockText(
                 text = "%02d:%02d".format(nowLocal.hour, nowLocal.minute),
-                fontSize = 72.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.primary,
+                shadows = shadows,
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 22.dp),
             )
         }
@@ -289,6 +279,45 @@ private fun HeroSection(state: TodayUiState, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Цифры часов с эффектом гравировки: под основным текстом — размытые
+ * копии в цветах теней неоморфизма (светлая сверху-слева, тёмная
+ * снизу-справа), чтобы цифры визуально «продолжали» выпуклость Surface,
+ * а не лежали на ней плоским слоем.
+ */
+@Composable
+private fun EmbossedClockText(text: String, shadows: NeuShadows, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        Text(
+            text = text,
+            fontSize = 72.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            color = shadows.dark,
+            modifier = Modifier
+                .offset(x = 2.dp, y = 2.dp)
+                .blur(3.dp),
+        )
+        Text(
+            text = text,
+            fontSize = 72.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            color = shadows.light,
+            modifier = Modifier
+                .offset(x = (-2).dp, y = (-2).dp)
+                .blur(3.dp),
+        )
+        Text(
+            text = text,
+            fontSize = 72.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
 @Composable
 private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
     Row(
@@ -296,21 +325,9 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilterChip(
-            selected = state.mode == ViewMode.DAY,
-            onClick = { viewModel.setMode(ViewMode.DAY) },
-            label = { Text("День") },
-        )
-        Spacer(Modifier.width(8.dp))
-        FilterChip(
-            selected = state.mode == ViewMode.WEEK,
-            onClick = { viewModel.setMode(ViewMode.WEEK) },
-            label = { Text("Неделя") },
-        )
-        Spacer(Modifier.width(8.dp))
-        FilterChip(
-            selected = state.mode == ViewMode.MONTH,
-            onClick = { viewModel.setMode(ViewMode.MONTH) },
-            label = { Text("Месяц") },
+            selected = true,
+            onClick = { viewModel.cycleMode() },
+            label = { Text(modeLabel(state.mode)) },
         )
         Spacer(Modifier.weight(1f))
         IconButton(onClick = { viewModel.shiftDate(-1) }) {
@@ -321,7 +338,9 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        TextButton(onClick = { viewModel.goToday() }) { Text("Сегодня") }
+        TextButton(onClick = { viewModel.goToday() }) {
+            Text("Сегодня", maxLines = 1, softWrap = false)
+        }
         IconButton(onClick = { viewModel.shiftDate(1) }) {
             Icon(
                 FeatherIcons.ArrowRight,
@@ -333,6 +352,12 @@ private fun ModeAndDateRow(state: TodayUiState, viewModel: TodayViewModel) {
     }
 }
 
+private fun modeLabel(mode: ViewMode): String = when (mode) {
+    ViewMode.DAY -> "День"
+    ViewMode.WEEK -> "Неделя"
+    ViewMode.MONTH -> "Месяц"
+}
+
 /** Сетка месяца: свой грид (без библиотек), понедельник — первый день недели. */
 @Composable
 private fun MonthGrid(state: TodayUiState, onDayClick: (LocalDate) -> Unit) {
@@ -342,40 +367,52 @@ private fun MonthGrid(state: TodayUiState, onDayClick: (LocalDate) -> Unit) {
     val leadingBlanks = firstDate.dayOfWeek.ordinal
     val weekdayLabels = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 
-    Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth()) {
-            weekdayLabels.forEach { label ->
-                Text(
-                    label,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Spacer(Modifier.height(4.dp))
-        val cells: List<DaySection?> = List(leadingBlanks) { null } + days
-        cells.chunked(7).forEach { week ->
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier
+            .fillMaxWidth()
+            .neumorphic(LocalNeuShadows.current, cornerRadius = 24.dp, blur = 12.dp, offset = 5.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+        ) {
             Row(Modifier.fillMaxWidth()) {
-                week.forEach { section ->
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .padding(2.dp),
-                    ) {
-                        if (section != null) {
-                            MonthDayCell(
-                                section = section,
-                                isSelected = section.date == state.selectedDate,
-                                isToday = section.date == state.now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
-                                onClick = { onDayClick(section.date) },
-                            )
+                weekdayLabels.forEach { label ->
+                    Text(
+                        label,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            val cells: List<DaySection?> = List(leadingBlanks) { null } + days
+            cells.chunked(7).forEach { week ->
+                Row(Modifier.fillMaxWidth()) {
+                    week.forEach { section ->
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .padding(2.dp),
+                        ) {
+                            if (section != null) {
+                                MonthDayCell(
+                                    section = section,
+                                    isSelected = section.date == state.selectedDate,
+                                    isToday = section.date == state.now.toLocalDateTime(TimeZone.currentSystemDefault()).date,
+                                    onClick = { onDayClick(section.date) },
+                                )
+                            }
                         }
                     }
+                    repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
                 }
-                repeat(7 - week.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

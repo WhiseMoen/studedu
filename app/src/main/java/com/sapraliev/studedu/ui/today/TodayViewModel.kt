@@ -286,6 +286,15 @@ class TodayViewModel(
         mode.value = newMode
     }
 
+    /** Один переключатель вместо трёх чипов: День → Неделя → Месяц → День. */
+    fun cycleMode() {
+        mode.value = when (mode.value) {
+            ViewMode.DAY -> ViewMode.WEEK
+            ViewMode.WEEK -> ViewMode.MONTH
+            ViewMode.MONTH -> ViewMode.DAY
+        }
+    }
+
     /** [direction] — -1 (назад) или 1 (вперёд); шаг зависит от текущего режима. */
     fun shiftDate(direction: Int) {
         selectedDate.value = when (mode.value) {
