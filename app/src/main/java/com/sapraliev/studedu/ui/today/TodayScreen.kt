@@ -1,8 +1,11 @@
 package com.sapraliev.studedu.ui.today
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,12 +62,14 @@ import com.sapraliev.studedu.ui.util.RussianDates
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.ArrowRight
+import compose.icons.feathericons.Plus
 import kotlin.time.Duration
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TodayScreen(
     viewModel: TodayViewModel = viewModel(
@@ -82,62 +86,85 @@ fun TodayScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
+            val interactionSource = remember { MutableInteractionSource() }
+            val pressed by interactionSource.collectIsPressedAsState()
             FloatingActionButton(
                 onClick = { editorOpen = true },
                 shape = CircleShape,
                 containerColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.neumorphic(LocalNeuShadows.current, cornerRadius = 28.dp),
+                interactionSource = interactionSource,
+                modifier = Modifier.neumorphic(
+                    LocalNeuShadows.current,
+                    cornerRadius = 28.dp,
+                    pressed = pressed,
+                ),
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Добавить событие")
+                Icon(FeatherIcons.Plus, contentDescription = "Добавить событие")
             }
         },
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
         ) {
-            TodayHeader(state)
-            ModeAndDateRow(state, viewModel)
-            Spacer(Modifier.height(8.dp))
+            item(key = "hero") {
+                HeroSection(state, modifier = Modifier.fillParentMaxHeight(0.85f))
+            }
+            stickyHeader(key = "mode-row") {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Text(
+                            text = if (state.mode == ViewMode.MONTH) {
+                                RussianDates.monthYear(state.selectedDate)
+                            } else {
+                                RussianDates.fullDate(state.selectedDate)
+                            },
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                        ModeAndDateRow(state, viewModel)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
             if (state.mode == ViewMode.MONTH) {
-                MonthGrid(state = state, onDayClick = viewModel::selectDay)
+                item(key = "month-grid") {
+                    MonthGrid(state = state, onDayClick = viewModel::selectDay)
+                }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    state.days.forEach { section ->
-                        if (state.mode == ViewMode.WEEK) {
-                            item(key = "header-${section.date}") {
-                                Text(
-                                    text = RussianDates.fullDate(section.date),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 8.dp),
-                                )
-                            }
-                        }
-                        if (section.cards.isEmpty() && state.mode == ViewMode.DAY) {
-                            item(key = "empty-${section.date}") { EmptyDay(state.universityGroup) }
-                        }
-                        items(section.cards, key = { it.key }) { card ->
-                            ScheduleCardView(
-                                card = card,
-                                now = state.now,
-                                onClick = {
-                                    when (card) {
-                                        is ScheduleCard.Personal -> personalAction = card
-                                        is ScheduleCard.University -> universityAction = card
-                                    }
-                                },
+                state.days.forEach { section ->
+                    if (state.mode == ViewMode.WEEK) {
+                        item(key = "header-${section.date}") {
+                            Text(
+                                text = RussianDates.fullDate(section.date),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp),
                             )
                         }
                     }
-                    item { Spacer(Modifier.height(80.dp)) }
+                    if (section.cards.isEmpty() && state.mode == ViewMode.DAY) {
+                        item(key = "empty-${section.date}") { EmptyDay(state.universityGroup) }
+                    }
+                    items(section.cards, key = { it.key }) { card ->
+                        ScheduleCardView(
+                            card = card,
+                            now = state.now,
+                            onClick = {
+                                when (card) {
+                                    is ScheduleCard.Personal -> personalAction = card
+                                    is ScheduleCard.University -> universityAction = card
+                                }
+                            },
+                            modifier = Modifier.padding(vertical = 5.dp),
+                        )
+                    }
                 }
             }
+            item { Spacer(Modifier.height(80.dp)) }
         }
     }
 
@@ -199,64 +226,65 @@ fun TodayScreen(
     }
 }
 
+/**
+ * «Обложка» ленты «Сегодня»: огромные неоморфные часы по центру экрана,
+ * дата словами и ближайшее событие. Первый item в LazyColumn — лента
+ * дня открывается прокруткой вниз.
+ */
 @Composable
-private fun TodayHeader(state: TodayUiState) {
+private fun HeroSection(state: TodayUiState, modifier: Modifier = Modifier) {
     val zone = TimeZone.currentSystemDefault()
     val nowLocal = state.now.toLocalDateTime(zone)
     val shadows = LocalNeuShadows.current
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 20.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(32.dp),
             color = MaterialTheme.colorScheme.background,
-            modifier = Modifier.neumorphic(shadows),
+            modifier = Modifier.neumorphic(shadows, cornerRadius = 32.dp, blur = 20.dp, offset = 8.dp),
         ) {
             Text(
                 text = "%02d:%02d".format(nowLocal.hour, nowLocal.minute),
-                fontSize = 44.sp,
+                fontSize = 72.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 32.dp, vertical = 22.dp),
             )
         }
-        Spacer(Modifier.width(16.dp))
-        Column {
+        Spacer(Modifier.height(18.dp))
+        Text(
+            text = RussianDates.heroLine(nowLocal.date),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(28.dp))
+        val until = state.untilNext
+        val nextStart = state.nextStart
+        if (until != null && state.nextTitle != null && nextStart != null) {
+            val startLocal = nextStart.toLocalDateTime(zone)
             Text(
-                text = if (state.mode == ViewMode.MONTH) {
-                    RussianDates.monthYear(state.selectedDate)
-                } else {
-                    RussianDates.fullDate(state.selectedDate)
-                },
-                style = MaterialTheme.typography.titleMedium,
+                text = state.nextTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                text = "%02d.%02d.%d".format(
-                    state.selectedDate.dayOfMonth,
-                    state.selectedDate.monthNumber,
-                    state.selectedDate.year,
-                ),
-                style = MaterialTheme.typography.labelMedium,
+                text = "%02d:%02d · через ${formatDuration(until)}".format(startLocal.hour, startLocal.minute),
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            val until = state.untilNext
-            if (until != null && state.nextTitle != null) {
-                Text(
-                    text = "через ${formatDuration(until)} — ${state.nextTitle}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = "ближайших событий нет",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        } else {
+            Text(
+                text = "сегодня свободно",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -388,7 +416,12 @@ private fun MonthDayCell(
 }
 
 @Composable
-private fun ScheduleCardView(card: ScheduleCard, now: Instant, onClick: () -> Unit) {
+private fun ScheduleCardView(
+    card: ScheduleCard,
+    now: Instant,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val zone = TimeZone.currentSystemDefault()
     val start = card.start.toLocalDateTime(zone)
     val end = card.end.toLocalDateTime(zone)
@@ -415,7 +448,7 @@ private fun ScheduleCardView(card: ScheduleCard, now: Instant, onClick: () -> Un
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
         border = if (hasConflict) BorderStroke(2.dp, ConflictRed) else null,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(modifier = Modifier.padding(14.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

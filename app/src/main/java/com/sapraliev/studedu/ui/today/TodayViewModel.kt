@@ -87,6 +87,7 @@ data class TodayUiState(
     val days: List<DaySection> = emptyList(),
     val untilNext: Duration? = null,
     val nextTitle: String? = null,
+    val nextStart: Instant? = null,
     val universityGroup: String? = null,
 )
 
@@ -256,6 +257,7 @@ class TodayViewModel(
             days = content.days,
             untilNext = next?.let { it.start - now },
             nextTitle = next?.title,
+            nextStart = next?.start,
             universityGroup = content.group,
         )
     }

@@ -39,6 +39,16 @@ object RussianDates {
     fun dayMonth(date: LocalDate): String =
         "${date.dayOfMonth} ${monthsGenitive[date.monthNumber - 1]}"
 
+    /** «13.07.2026 · июль · понедельник» — для героя ленты «Сегодня». */
+    fun heroLine(date: LocalDate): String =
+        "%02d.%02d.%d · %s · %s".format(
+            date.dayOfMonth,
+            date.monthNumber,
+            date.year,
+            monthsNominative[date.monthNumber - 1].lowercase(),
+            weekdaysFull[date.dayOfWeek.ordinal],
+        )
+
     fun weekdayShort(day: DayOfWeek): String = weekdaysShort[day.ordinal]
 
     fun weekdayFull(day: DayOfWeek): String = weekdaysFull[day.ordinal]
