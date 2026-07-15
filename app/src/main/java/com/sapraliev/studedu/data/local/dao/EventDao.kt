@@ -22,25 +22,11 @@ interface EventDao {
      * Все события, чьё первое вхождение попадает в диапазон, плюс все
      * повторяющиеся (их вхождения в диапазоне генерирует доменный слой).
      */
-    @Query(
-        """
-        SELECT * FROM events
-        WHERE (start_at < :to AND end_at > :from)
-           OR recurrence_rule_id IS NOT NULL
-        ORDER BY start_at
-        """
-    )
+    @Query(EVENTS_AROUND_SQL)
     fun observeEventsAround(from: Instant, to: Instant): Flow<List<EventEntity>>
 
     /** Разовый снимок того же запроса — для планировщика напоминаний. */
-    @Query(
-        """
-        SELECT * FROM events
-        WHERE (start_at < :to AND end_at > :from)
-           OR recurrence_rule_id IS NOT NULL
-        ORDER BY start_at
-        """
-    )
+    @Query(EVENTS_AROUND_SQL)
     suspend fun getEventsAroundOnce(from: Instant, to: Instant): List<EventEntity>
 
     @Query("SELECT * FROM events WHERE id = :id")
@@ -48,9 +34,6 @@ interface EventDao {
 
     @Query("UPDATE events SET reminders_enabled = :enabled WHERE id = :id")
     suspend fun setRemindersEnabled(id: String, enabled: Boolean)
-
-    @Query("SELECT * FROM events WHERE student_id = :studentId ORDER BY start_at DESC")
-    fun observeEventsForStudent(studentId: String): Flow<List<EventEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertEvent(event: EventEntity)
@@ -63,9 +46,6 @@ interface EventDao {
 
     // ---------- правила повторения ----------
 
-    @Query("SELECT * FROM recurrence_rules WHERE id = :id")
-    suspend fun getRuleById(id: String): RecurrenceRuleEntity?
-
     @Query("SELECT * FROM recurrence_rules")
     fun observeAllRules(): Flow<List<RecurrenceRuleEntity>>
 
@@ -75,13 +55,7 @@ interface EventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertRule(rule: RecurrenceRuleEntity)
 
-    @Delete
-    suspend fun deleteRule(rule: RecurrenceRuleEntity)
-
     // ---------- исключения серий ----------
-
-    @Query("SELECT * FROM recurrence_exceptions WHERE event_id = :eventId")
-    suspend fun getExceptionsForEvent(eventId: String): List<RecurrenceExceptionEntity>
 
     @Query("SELECT * FROM recurrence_exceptions")
     fun observeAllExceptions(): Flow<List<RecurrenceExceptionEntity>>
@@ -92,9 +66,6 @@ interface EventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertException(exception: RecurrenceExceptionEntity)
 
-    @Delete
-    suspend fun deleteException(exception: RecurrenceExceptionEntity)
-
     // ---------- составные операции ----------
 
     /** Создание повторяющегося события: правило + событие одной транзакцией. */
@@ -102,5 +73,14 @@ interface EventDao {
     suspend fun insertEventWithRule(rule: RecurrenceRuleEntity, event: EventEntity) {
         upsertRule(rule)
         upsertEvent(event)
+    }
+
+    private companion object {
+        const val EVENTS_AROUND_SQL = """
+            SELECT * FROM events
+            WHERE (start_at < :to AND end_at > :from)
+               OR recurrence_rule_id IS NOT NULL
+            ORDER BY start_at
+        """
     }
 }

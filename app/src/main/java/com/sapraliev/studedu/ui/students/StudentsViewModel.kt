@@ -6,9 +6,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.sapraliev.studedu.data.local.AppDatabase
+import com.sapraliev.studedu.core.AppGraph
 import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
+import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
+import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
 import com.sapraliev.studedu.data.repository.StudentOverview
 import com.sapraliev.studedu.data.repository.StudentsRepository
@@ -92,6 +94,15 @@ class StudentsViewModel(
         repository.observeOverview(activeOnly = !includeInactive)
     }
 
+    /** Промежуточный пакет данных детали — сузить до типобезопасной 5-местной combine(). */
+    private data class DetailBase(
+        val student: StudentEntity?,
+        val enrollments: List<EnrollmentEntity>,
+        val records: List<LessonRecordEntity>,
+        val monthPayments: List<PaymentEntity>,
+        val balance: Double,
+    )
+
     private val detailFlow = combine(selectedStudentId, monthOffset) { id, offset -> id to offset }
         .flatMapLatest { (id, offset) ->
             if (id == null) return@flatMapLatest flowOf(null)
@@ -102,21 +113,30 @@ class StudentsViewModel(
             val monthEnd = monthStart.plus(DatePeriod(months = 1))
                 .minus(DatePeriod(days = 1))
 
-            combine(
+            val baseFlow = combine(
                 repository.observeStudent(id),
                 repository.observeEnrollments(id),
                 repository.observeLessonRecords(id, monthStart, monthEnd),
                 repository.observePayments(id, monthStart, monthEnd),
-                repository.observePayments(id, EPOCH, FAR_FUTURE),
-            ) { student, enrollments, records, monthPayments, allPayments ->
-                if (student == null) return@combine null
+                // Полный баланс — SQL SUM, а не выгрузка всей истории платежей в память.
+                repository.observeBalance(id, EPOCH, FAR_FUTURE),
+            ) { student, enrollments, records, monthPayments, balance ->
+                DetailBase(student, enrollments, records, monthPayments, balance)
+            }
+
+            combine(
+                baseFlow,
+                // Точечный запрос вместо фильтрации всей истории платежей по covers_month.
+                repository.observeMonthCoveredEnrollmentIds(id, monthStart),
+            ) { base, monthCoveredIds ->
+                val student = base.student ?: return@combine null
+                val enrollments = base.enrollments
+                val monthPayments = base.monthPayments
+                val balance = base.balance
 
                 val subjectByEnrollment = enrollments.associate { it.id to it.subject }
-                val balance = allPayments.sumOf {
-                    if (it.direction == PaymentDirection.PAYMENT) it.amount else -it.amount
-                }
 
-                val lessons = records.map {
+                val lessons = base.records.map {
                     HistoryItem.Lesson(
                         date = it.date,
                         subject = subjectByEnrollment[it.enrollmentId] ?: "занятие",
@@ -142,17 +162,13 @@ class StudentsViewModel(
                 } else {
                     null
                 }
-                val monthCovered = allPayments
-                    .filter { it.coversMonth == monthStart }
-                    .mapNotNull { it.enrollmentId }
-                    .toSet()
 
                 StudentDetailState(
                     student = student,
                     enrollments = enrollments,
                     balance = balance,
                     prepaidLessons = prepaid,
-                    monthCoveredEnrollmentIds = monthCovered,
+                    monthCoveredEnrollmentIds = monthCoveredIds.toSet(),
                     summary = MonthSummary(
                         monthStart = monthStart,
                         lessonsTotal = lessons.size,
@@ -288,10 +304,8 @@ class StudentsViewModel(
 
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val db = AppDatabase.get(context.applicationContext)
-                StudentsViewModel(
-                    StudentsRepository(db.studentDao(), db.enrollmentDao()),
-                )
+                AppGraph.init(context.applicationContext)
+                StudentsViewModel(AppGraph.studentsRepository)
             }
         }
     }

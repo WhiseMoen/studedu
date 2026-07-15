@@ -78,11 +78,16 @@ fun Modifier.neumorphic(
     var cachedWidth by remember { mutableStateOf(0) }
     var cachedHeight by remember { mutableStateOf(0) }
 
+    // pad/width/height считаются от статичного [offset] (не от animatedOffset) —
+    // иначе округление анимированного смещения меняется почти каждый кадр и
+    // бьёт кэш ниже, пересоздавая Bitmap на каждый тик анимации нажатия.
+    val staticPadDp = remember(blur, offset) { (blur.value * 2.5f + offset.value).dp }
+
     drawBehind {
         val radiusPx = cornerRadius.toPx()
         val blurPx = blur.toPx()
         val offsetPx = animatedOffset.toPx()
-        val pad = (blurPx * 2.5f + offsetPx).roundToInt().coerceAtLeast(1)
+        val pad = staticPadDp.toPx().roundToInt().coerceAtLeast(1)
         val width = size.width.roundToInt() + pad * 2
         val height = size.height.roundToInt() + pad * 2
         if (width <= 0 || height <= 0) return@drawBehind

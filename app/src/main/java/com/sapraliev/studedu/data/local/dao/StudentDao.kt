@@ -57,9 +57,6 @@ interface StudentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertLessonRecord(record: LessonRecordEntity)
 
-    @Delete
-    suspend fun deleteLessonRecord(record: LessonRecordEntity)
-
     // ---------- оплаты (леджер) ----------
 
     @Query("SELECT * FROM payments WHERE student_id = :studentId ORDER BY date DESC")
@@ -84,14 +81,20 @@ interface StudentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertPayment(payment: PaymentEntity)
 
-    @Delete
-    suspend fun deletePayment(payment: PaymentEntity)
-
     /** «Месяц оплачен» для этого предмета — занятия в нём не начисляются. */
     @Query(
         "SELECT COUNT(*) FROM payments WHERE enrollment_id = :enrollmentId AND covers_month = :month"
     )
     suspend fun countMonthCoverage(enrollmentId: String, month: LocalDate): Int
+
+    /**
+     * Предметы ученика, у которых [month] (первое число) уже оплачен целиком —
+     * точечный запрос вместо загрузки всей истории платежей ради этой отметки.
+     */
+    @Query(
+        "SELECT DISTINCT enrollment_id FROM payments WHERE student_id = :studentId AND covers_month = :month"
+    )
+    fun observeMonthCoveredEnrollmentIds(studentId: String, month: LocalDate): Flow<List<String>>
 
     // ---------- статистика ----------
 

@@ -11,9 +11,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.sapraliev.studedu.core.AppGraph
 import com.sapraliev.studedu.ui.navigation.AppNavigation
 import com.sapraliev.studedu.ui.theme.StudeduTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -23,6 +26,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppGraph.init(applicationContext)
+        lifecycleScope.launch(Dispatchers.IO) { AppGraph.reminderScheduler.refresh() }
         requestNotificationPermissionIfNeeded()
         enableEdgeToEdge()
         setContent {

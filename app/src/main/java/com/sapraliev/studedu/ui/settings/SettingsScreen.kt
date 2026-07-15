@@ -1,6 +1,7 @@
 package com.sapraliev.studedu.ui.settings
 
 import android.app.AlarmManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,12 +43,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sapraliev.studedu.data.local.entity.HiddenLessonMode
 import com.sapraliev.studedu.data.settings.ThemeMode
+import com.sapraliev.studedu.ui.util.Money
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.BookOpen
 import compose.icons.feathericons.ChevronRight
@@ -71,6 +77,21 @@ fun SettingsScreen(
     var lkInput by remember { mutableStateOf("") }
     var sdoInput by remember { mutableStateOf("") }
 
+    // Экран не пересоздаётся при возврате из системных настроек — без явного
+    // перечитывания на ON_RESUME баннер «разреши будильники» продолжал бы
+    // висеть даже после того, как право уже выдано.
+    var exactAlarmsAllowed by remember { mutableStateOf(canScheduleExactAlarms(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                exactAlarmsAllowed = canScheduleExactAlarms(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     fun openUrl(url: String) {
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -93,8 +114,7 @@ fun SettingsScreen(
 
         // ---------- уведомления ----------
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = context.getSystemService(AlarmManager::class.java)
-            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+            if (!exactAlarmsAllowed) {
                 item {
                     SettingsCard(title = "Уведомления") {
                         Text(
@@ -336,7 +356,7 @@ fun SettingsScreen(
                     Text("Топ месяца по оплатам", style = MaterialTheme.typography.labelLarge)
                     state.stats.topStudents.forEach { (name, paid) ->
                         Text(
-                            "  · $name — ${formatMoney(paid)}",
+                            "  · $name — ${Money.format(paid)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -453,20 +473,16 @@ private fun StatsRow(label: String, paid: Double, charged: Double, lessons: Int)
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
         Text(
-            "получено ${formatMoney(paid)} · начислено ${formatMoney(charged)} · занятий $lessons",
+            "получено ${Money.format(paid)} · начислено ${Money.format(charged)} · занятий $lessons",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-private fun formatMoney(amount: Double): String {
-    val rounded = if (amount == amount.toLong().toDouble()) {
-        amount.toLong().toString()
-    } else {
-        "%.2f".format(amount)
-    }
-    return "$rounded ₽"
+private fun canScheduleExactAlarms(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+    return context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() ?: false
 }
 
 private fun formatSyncTime(epochMillis: Long): String {

@@ -248,7 +248,7 @@ private fun HeroSection(state: TodayUiState, modifier: Modifier = Modifier) {
             modifier = Modifier.neumorphic(shadows, cornerRadius = 32.dp, blur = 20.dp, offset = 8.dp),
         ) {
             EmbossedClockText(
-                text = "%02d:%02d".format(nowLocal.hour, nowLocal.minute),
+                text = RussianDates.time(nowLocal.hour, nowLocal.minute),
                 shadows = shadows,
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 22.dp),
             )
@@ -272,7 +272,7 @@ private fun HeroSection(state: TodayUiState, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                text = "%02d:%02d · через ${formatDuration(until)}".format(startLocal.hour, startLocal.minute),
+                text = "${RussianDates.time(startLocal.hour, startLocal.minute)} · через ${formatDuration(until)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -507,12 +507,12 @@ private fun ScheduleCardView(
         Row(modifier = Modifier.padding(14.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "%02d:%02d".format(start.hour, start.minute),
+                    RussianDates.time(start.hour, start.minute),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    "%02d:%02d".format(end.hour, end.minute),
+                    RussianDates.time(end.hour, end.minute),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -8,6 +8,8 @@ import com.sapraliev.studedu.data.local.entity.ScheduledReminderEntity
 import com.sapraliev.studedu.domain.occurrence.OccurrenceGenerator
 import com.sapraliev.studedu.domain.reminders.PlannedReminder
 import com.sapraliev.studedu.domain.reminders.ReminderPlanner
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimePeriod
 import kotlinx.datetime.TimeZone
@@ -20,6 +22,12 @@ import kotlinx.datetime.plus
  * планируются. Вызывается при любой правке события/задачи и раз в сутки
  * фоново ([ReminderRefreshWorker]), чтобы окно не «протухало», если
  * приложение долго не открывали.
+ *
+ * У приложения несколько независимых точек, которые могут дёрнуть
+ * [refresh] одновременно (открытие приложения, `BootReceiver`, суточный
+ * воркер, действие пользователя сразу после старта) — без [mutex] два
+ * параллельных вызова читали бы [reminderDao] до того, как другой успел
+ * его переписать, и часть будильников терялась бы или дублировалась.
  */
 class ReminderScheduler(
     private val context: Context,
@@ -30,7 +38,9 @@ class ReminderScheduler(
     private val zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
 
-    suspend fun refresh(windowDays: Int = 35) {
+    private val mutex = Mutex()
+
+    suspend fun refresh(windowDays: Int = 35) = mutex.withLock {
         val now = Clock.System.now()
         val windowEnd = now.plus(DateTimePeriod(days = windowDays), zone)
 

@@ -52,4 +52,7 @@ object RussianDates {
     fun weekdayShort(day: DayOfWeek): String = weekdaysShort[day.ordinal]
 
     fun weekdayFull(day: DayOfWeek): String = weekdaysFull[day.ordinal]
+
+    /** «09:05» — было продублировано в нескольких экранах. */
+    fun time(hour: Int, minute: Int): String = "%02d:%02d".format(hour, minute)
 }

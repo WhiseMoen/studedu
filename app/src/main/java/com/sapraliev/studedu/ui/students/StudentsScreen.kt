@@ -50,7 +50,9 @@ import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
 import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
+import com.sapraliev.studedu.ui.util.Money
 import com.sapraliev.studedu.ui.util.RussianDates
+import com.sapraliev.studedu.ui.util.filterMoneyInput
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.ArrowRight
@@ -152,7 +154,7 @@ fun StudentsScreen(
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 val subjects = overview.enrollments.joinToString(" · ") { e ->
-                                    e.pricePerLesson?.let { "${e.subject} ${formatMoney(it)}" }
+                                    e.pricePerLesson?.let { "${e.subject} ${Money.format(it)}" }
                                         ?: e.subject
                                 }
                                 if (subjects.isNotEmpty()) {
@@ -281,7 +283,7 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        formatMoney(detail.balance),
+                        Money.format(detail.balance),
                         fontSize = 34.sp,
                         fontWeight = FontWeight.Bold,
                         color = when {
@@ -418,8 +420,8 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
                         )
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text("Начислено: ${formatMoney(summary.charged)}")
-                    Text("Получено: ${formatMoney(summary.paid)}")
+                    Text("Начислено: ${Money.format(summary.charged)}")
+                    Text("Получено: ${Money.format(summary.paid)}")
                 }
             }
         }
@@ -591,7 +593,7 @@ private fun HistoryRow(item: HistoryItem) {
         }
         if (item is HistoryItem.Money) {
             Text(
-                (if (item.isIncome) "+" else "−") + formatMoney(item.amount),
+                (if (item.isIncome) "+" else "−") + Money.format(item.amount),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = if (item.isIncome) {
@@ -607,7 +609,7 @@ private fun HistoryRow(item: HistoryItem) {
 @Composable
 private fun BalanceText(balance: Double) {
     Text(
-        formatMoney(balance),
+        Money.format(balance),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
         color = when {
@@ -642,8 +644,8 @@ private fun StudentEditorDialog(
     var name by remember { mutableStateOf("") }
     var contact by remember { mutableStateOf("") }
     var subject by remember { mutableStateOf(initialSubject) }
-    var priceText by remember { mutableStateOf(initialPrice?.let { formatEditableAmount(it) } ?: "") }
-    var feeText by remember { mutableStateOf(initialMonthlyFee?.let { formatEditableAmount(it) } ?: "") }
+    var priceText by remember { mutableStateOf(initialPrice?.let { Money.formatEditable(it) } ?: "") }
+    var feeText by remember { mutableStateOf(initialMonthlyFee?.let { Money.formatEditable(it) } ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -672,13 +674,13 @@ private fun StudentEditorDialog(
                 )
                 OutlinedTextField(
                     value = priceText,
-                    onValueChange = { priceText = it.filterMoney() },
+                    onValueChange = { priceText = it.filterMoneyInput() },
                     label = { Text("Ставка за занятие, ₽") },
                     singleLine = true,
                 )
                 OutlinedTextField(
                     value = feeText,
-                    onValueChange = { feeText = it.filterMoney() },
+                    onValueChange = { feeText = it.filterMoneyInput() },
                     label = { Text("Обычная сумма за месяц, ₽ (необязательно)") },
                     singleLine = true,
                 )
@@ -726,6 +728,10 @@ private fun PaymentDialog(
     var amountText by remember { mutableStateOf("") }
     var lessonsText by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
+    // Диалог закрывается сразу после сохранения, но окно между двойным тапом
+    // и рекомпозицией остаётся — без этой защиты быстрый двойной тап на
+    // «Сохранить» мог бы завести два платежа (особенно опасно для «Месяца»).
+    var submitted by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -772,7 +778,7 @@ private fun PaymentDialog(
                 }
                 OutlinedTextField(
                     value = amountText,
-                    onValueChange = { amountText = it.filterMoney() },
+                    onValueChange = { amountText = it.filterMoneyInput() },
                     label = { Text("Сумма, ₽") },
                     singleLine = true,
                 )
@@ -795,18 +801,24 @@ private fun PaymentDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    if (submitted) return@TextButton
                     val amount = amountText.toDoubleOrNull() ?: return@TextButton
                     if (amount <= 0) return@TextButton
                     val commentValue = comment.takeIf { it.isNotBlank() }
                     when (mode) {
-                        PaymentMode.ONE_OFF -> onSaveOneOff(amount, commentValue)
+                        PaymentMode.ONE_OFF -> {
+                            submitted = true
+                            onSaveOneOff(amount, commentValue)
+                        }
                         PaymentMode.MONTH -> {
                             val enrollmentId = selectedEnrollmentId ?: return@TextButton
+                            submitted = true
                             onSaveMonth(enrollmentId, amount, commentValue)
                         }
                         PaymentMode.PACKAGE -> {
                             val enrollmentId = selectedEnrollmentId ?: return@TextButton
                             val lessonsCount = lessonsText.toIntOrNull() ?: return@TextButton
+                            submitted = true
                             onSavePackage(enrollmentId, amount, lessonsCount, commentValue)
                         }
                     }
@@ -864,29 +876,14 @@ private fun EditStudentDialog(
 
 private fun enrollmentRateLabel(enrollment: EnrollmentEntity, monthCovered: Boolean): String {
     val parts = buildList {
-        add(enrollment.pricePerLesson?.let { "${formatMoney(it)}/занятие" } ?: "ставка не задана")
-        enrollment.monthlyFee?.let { add("${formatMoney(it)}/мес") }
+        add(enrollment.pricePerLesson?.let { "${Money.format(it)}/занятие" } ?: "ставка не задана")
+        enrollment.monthlyFee?.let { add("${Money.format(it)}/мес") }
         if (enrollment.remainingPackageLessons > 0) {
             add("осталось ${enrollment.remainingPackageLessons} по пакету")
         }
         if (monthCovered) add("месяц оплачен")
     }
     return parts.joinToString(" · ")
-}
-
-private fun formatEditableAmount(amount: Double): String =
-    if (amount == amount.toLong().toDouble()) amount.toLong().toString() else amount.toString()
-
-private fun String.filterMoney(): String =
-    filter { it.isDigit() || it == '.' }.take(9)
-
-private fun formatMoney(amount: Double): String {
-    val rounded = if (amount == amount.toLong().toDouble()) {
-        amount.toLong().toString()
-    } else {
-        "%.2f".format(amount)
-    }
-    return "$rounded ₽"
 }
 
 private fun monthTitle(monthStart: kotlinx.datetime.LocalDate): String {

@@ -10,9 +10,6 @@ import com.sapraliev.studedu.data.settings.AppSettings
 import com.sapraliev.studedu.notifications.NotificationChannels
 import com.sapraliev.studedu.notifications.ReminderRefreshWorker
 import com.sapraliev.studedu.notifications.ReminderScheduler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Композиционный корень приложения (сервис-локатор).
@@ -29,13 +26,21 @@ object AppGraph {
     private fun ctx(): Context =
         requireNotNull(appContext) { "AppGraph.init(context) не вызван" }
 
+    /**
+     * Не запускает здесь начальный `reminderScheduler.refresh()`
+     * fire-and-forget — такой вызов ничем не awaited и в BroadcastReceiver
+     * (`BootReceiver`) процесс мог бы быть убит раньше, чем корутина
+     * дойдёт до записи в базу. Каждый реальный вызывающий (`MainActivity`,
+     * `BootReceiver`, `ReminderRefreshWorker`) сам владеет своим вызовом
+     * `refresh()` в корректно awaited скоупе; `ReminderScheduler.refresh`
+     * потокобезопасен (Mutex), так что дублирующиеся вызовы не гонятся.
+     */
     fun init(context: Context) {
         if (appContext != null) return
         appContext = context.applicationContext
 
         NotificationChannels.ensureCreated(ctx())
         ReminderRefreshWorker.enqueue(ctx())
-        CoroutineScope(Dispatchers.IO).launch { reminderScheduler.refresh() }
     }
 
     val database: AppDatabase by lazy { AppDatabase.get(ctx()) }

@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sapraliev.studedu.core.AppGraph
-import com.sapraliev.studedu.data.local.AppDatabase
 import com.sapraliev.studedu.data.local.dao.TaskDao
 import com.sapraliev.studedu.data.local.entity.TaskEntity
 import com.sapraliev.studedu.data.local.entity.TaskSource
@@ -103,10 +102,8 @@ class TasksViewModel(
     companion object {
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                TasksViewModel(
-                    AppDatabase.get(context.applicationContext).taskDao(),
-                    AppGraph.reminderScheduler,
-                )
+                AppGraph.init(context.applicationContext)
+                TasksViewModel(AppGraph.database.taskDao(), AppGraph.reminderScheduler)
             }
         }
     }

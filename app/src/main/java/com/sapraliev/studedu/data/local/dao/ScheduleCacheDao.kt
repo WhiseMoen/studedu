@@ -22,9 +22,6 @@ interface ScheduleCacheDao {
     )
     fun observeLessons(from: Instant, to: Instant): Flow<List<UniversityScheduleCacheEntity>>
 
-    @Query("SELECT MAX(synced_at) FROM university_schedule_cache WHERE provider = :provider")
-    suspend fun lastSyncedAt(provider: String): Long?
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(lessons: List<UniversityScheduleCacheEntity>)
 

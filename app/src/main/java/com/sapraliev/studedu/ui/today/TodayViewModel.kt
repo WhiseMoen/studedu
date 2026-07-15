@@ -7,14 +7,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sapraliev.studedu.core.AppGraph
-import com.sapraliev.studedu.data.local.AppDatabase
 import com.sapraliev.studedu.data.local.entity.EventType
 import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
 import com.sapraliev.studedu.data.repository.EventRepository
 import com.sapraliev.studedu.data.repository.NewRecurrence
 import com.sapraliev.studedu.data.repository.ScheduleRepository
 import com.sapraliev.studedu.data.repository.StudentsRepository
-import com.sapraliev.studedu.data.schedule.MospolytechProvider
 import com.sapraliev.studedu.data.settings.AppSettings
 import com.sapraliev.studedu.domain.conflict.ConflictDetector
 import com.sapraliev.studedu.domain.occurrence.Occurrence
@@ -451,20 +449,12 @@ class TodayViewModel(
     companion object {
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val app = context.applicationContext
-                val db = AppDatabase.get(app)
+                AppGraph.init(context.applicationContext)
                 TodayViewModel(
-                    eventRepository = EventRepository(db.eventDao()),
-                    scheduleRepository = ScheduleRepository(
-                        provider = MospolytechProvider(),
-                        cacheDao = db.scheduleCacheDao(),
-                        hiddenLessonDao = db.hiddenLessonDao(),
-                    ),
-                    studentsRepository = StudentsRepository(
-                        db.studentDao(),
-                        db.enrollmentDao(),
-                    ),
-                    settings = AppSettings.get(app),
+                    eventRepository = AppGraph.eventRepository,
+                    scheduleRepository = AppGraph.scheduleRepository,
+                    studentsRepository = AppGraph.studentsRepository,
+                    settings = AppGraph.settings,
                     reminderScheduler = AppGraph.reminderScheduler,
                 )
             }

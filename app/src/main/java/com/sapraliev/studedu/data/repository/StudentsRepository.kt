@@ -69,6 +69,14 @@ class StudentsRepository(
     fun observePayments(studentId: String, from: LocalDate, to: LocalDate) =
         studentDao.observePaymentsBetween(studentId, from, to)
 
+    /** Полный баланс (SUM в SQL) — не тянет всю историю платежей в память ради одного числа. */
+    fun observeBalance(studentId: String, from: LocalDate, to: LocalDate) =
+        studentDao.observeBalance(studentId, from, to)
+
+    /** Предметы, у которых [month] оплачен целиком — точечный запрос, не вся история платежей. */
+    fun observeMonthCoveredEnrollmentIds(studentId: String, month: LocalDate) =
+        studentDao.observeMonthCoveredEnrollmentIds(studentId, month)
+
     suspend fun getEnrollment(id: String): EnrollmentEntity? = enrollmentDao.getById(id)
 
     /** Создаёт ученика сразу с первым предметом. */
@@ -175,20 +183,12 @@ class StudentsRepository(
         comment: String?,
     ) {
         if (amount <= 0) return
-        studentDao.upsertPayment(
-            PaymentEntity(
-                id = UUID.randomUUID().toString(),
-                userId = EventRepository.LOCAL_USER_ID,
-                studentId = studentId,
-                enrollmentId = enrollmentId,
-                lessonRecordId = null,
-                amount = amount,
-                direction = PaymentDirection.PAYMENT,
-                date = today(),
-                comment = comment?.trim()?.takeIf { it.isNotEmpty() },
-                coversMonth = null,
-                createdAt = Clock.System.now(),
-            ),
+        recordPayment(
+            studentId = studentId,
+            enrollmentId = enrollmentId,
+            amount = amount,
+            direction = PaymentDirection.PAYMENT,
+            comment = comment,
         )
     }
 
@@ -205,20 +205,13 @@ class StudentsRepository(
         comment: String?,
     ) {
         if (amount <= 0) return
-        studentDao.upsertPayment(
-            PaymentEntity(
-                id = UUID.randomUUID().toString(),
-                userId = EventRepository.LOCAL_USER_ID,
-                studentId = studentId,
-                enrollmentId = enrollmentId,
-                lessonRecordId = null,
-                amount = amount,
-                direction = PaymentDirection.PAYMENT,
-                date = today(),
-                comment = comment?.trim()?.takeIf { it.isNotEmpty() },
-                coversMonth = LocalDate(month.year, month.monthNumber, 1),
-                createdAt = Clock.System.now(),
-            ),
+        recordPayment(
+            studentId = studentId,
+            enrollmentId = enrollmentId,
+            amount = amount,
+            direction = PaymentDirection.PAYMENT,
+            comment = comment,
+            coversMonth = LocalDate(month.year, month.monthNumber, 1),
         )
     }
 
@@ -231,23 +224,14 @@ class StudentsRepository(
         comment: String?,
     ) {
         if (amount <= 0 || lessonsCount <= 0) return
-        val now = Clock.System.now()
-        studentDao.upsertPayment(
-            PaymentEntity(
-                id = UUID.randomUUID().toString(),
-                userId = EventRepository.LOCAL_USER_ID,
-                studentId = studentId,
-                enrollmentId = enrollmentId,
-                lessonRecordId = null,
-                amount = amount,
-                direction = PaymentDirection.PAYMENT,
-                date = today(),
-                comment = comment?.trim()?.takeIf { it.isNotEmpty() },
-                coversMonth = null,
-                createdAt = now,
-            ),
+        recordPayment(
+            studentId = studentId,
+            enrollmentId = enrollmentId,
+            amount = amount,
+            direction = PaymentDirection.PAYMENT,
+            comment = comment,
         )
-        enrollmentDao.addPackageLessons(enrollmentId, lessonsCount, now)
+        enrollmentDao.addPackageLessons(enrollmentId, lessonsCount, Clock.System.now())
     }
 
     /**
@@ -283,20 +267,14 @@ class StudentsRepository(
         )
         val chargeAmount = amountOverride ?: computeDefaultCharge(enrollmentId, date)
         if (chargeAmount > 0) {
-            studentDao.upsertPayment(
-                PaymentEntity(
-                    id = UUID.randomUUID().toString(),
-                    userId = EventRepository.LOCAL_USER_ID,
-                    studentId = studentId,
-                    enrollmentId = enrollmentId,
-                    lessonRecordId = recordId,
-                    amount = chargeAmount,
-                    direction = PaymentDirection.CHARGE,
-                    date = date,
-                    comment = null,
-                    coversMonth = null,
-                    createdAt = now,
-                ),
+            recordPayment(
+                studentId = studentId,
+                enrollmentId = enrollmentId,
+                amount = chargeAmount,
+                direction = PaymentDirection.CHARGE,
+                comment = null,
+                date = date,
+                lessonRecordId = recordId,
             )
         }
     }
@@ -311,6 +289,34 @@ class StudentsRepository(
             return 0.0
         }
         return enrollment.pricePerLesson ?: 0.0
+    }
+
+    /** Общий конструктор строки леджера — раньше был продублирован в каждом из методов выше. */
+    private suspend fun recordPayment(
+        studentId: String,
+        enrollmentId: String?,
+        amount: Double,
+        direction: PaymentDirection,
+        comment: String?,
+        date: LocalDate = today(),
+        lessonRecordId: String? = null,
+        coversMonth: LocalDate? = null,
+    ) {
+        studentDao.upsertPayment(
+            PaymentEntity(
+                id = UUID.randomUUID().toString(),
+                userId = EventRepository.LOCAL_USER_ID,
+                studentId = studentId,
+                enrollmentId = enrollmentId,
+                lessonRecordId = lessonRecordId,
+                amount = amount,
+                direction = direction,
+                date = date,
+                comment = comment?.trim()?.takeIf { it.isNotEmpty() },
+                coversMonth = coversMonth,
+                createdAt = Clock.System.now(),
+            ),
+        )
     }
 
     private fun today(): LocalDate =

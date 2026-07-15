@@ -148,6 +148,22 @@
 - `kotlinOptions` в Gradle помечен deprecated — заменить на `kotlin { compilerOptions { } }` при следующем обновлении Kotlin, не срочно.
 - `EventDao.observeEventsAround` выбирает все повторяющиеся события без фильтра по дате окончания серии — при сотнях событий не проблема; если станет узким местом, добавить денормализованное поле `series_end_at`.
 - Синк Supabase: Room-поле `group_name` ↔ Postgres-колонка `"group"` — маппинг имён живёт в слое синка (Этап 5).
+- `ReminderScheduler.refresh()` пересчитывает весь 35-дневный оконный план целиком на каждое мутирующее действие (пометить занятие, тоггл задачи) — для личного объёма данных не проблема, но без дебаунса/инкрементальности; если станет заметно — дебаунсить вызовы вместо пересчёта на каждый чих.
+- `StatsViewModel` фиксирует границы «этот/прошлый месяц» один раз при создании ViewModel — теоретически может показать старые границы, если держать экран открытым через полночь на стыке месяца; не пересоздаётся раньше, чем закрыть и открыть «Статистику» заново. Низкий риск, не трогали.
+
+## Ревизия кода 2026-07-15 (полный аудит + правки)
+
+По прямому запросу владельца проведён полный аудит кодовой базы (data/domain/notifications + UI/ViewModel слои) двумя параллельными агентами, затем применены находки:
+- **Bitmap в `Modifier.neumorphic` пересоздавался почти на каждом кадре** анимации нажатия (размер битмапа считался от анимированного, а не статичного смещения) — исправлено, кэш теперь стабилен.
+- **Гонка при холодном старте уведомлений**: `AppGraph.init()`, `BootReceiver`, суточный `WorkManager` могли одновременно дёрнуть `ReminderScheduler.refresh()` — добавлен `Mutex`, вызовы теперь безопасно сериализуются; сам fire-and-forget вызов из `init()` убран (ненадёжен внутри `BroadcastReceiver` — процесс может умереть раньше корутины), явный вызов перенесён в `MainActivity` через `lifecycleScope`.
+- **Дублирование конструирования `PaymentEntity`** в 4 методах `StudentsRepository` — вынесено в приватный `recordPayment(...)`.
+- **`AppGraph.eventRepository`/`studentsRepository` были мертвы** — `TodayViewModel`/`StudentsViewModel`/`TasksViewModel` создавали свои копии репозиториев через `AppDatabase.get(context)` вместо переиспользования `AppGraph`. Все три фабрики переведены на `AppGraph` (закрывает старый тех-долг «фабрики перевести на AppGraph»).
+- **Ручное суммирование баланса и полная выгрузка истории платежей** в `StudentsViewModel` ради двух чисел (баланс, «месяц оплачен») — заменены на точечные SQL-запросы (`StudentDao.observeBalance`, новый `observeMonthCoveredEnrollmentIds`).
+- **Баннер «разреши точные будильники»** в настройках не обновлялся при возврате из системных настроек — добавлен `LifecycleEventObserver` на `ON_RESUME`.
+- **Двойной тап на «Сохранить» в диалоге платежа** мог создать два платежа подряд (особенно опасно для «Месяца») — добавлен флаг `submitted`, блокирующий повторный сабмит.
+- Тройное дублирование `formatMoney`/`filterMoney`/`formatEditableAmount` (Students/Stats/Settings) и форматирования времени `"%02d:%02d"` (Today/EventEditorSheet) — вынесены в `ui/util/Money.kt` и `RussianDates.time(...)`.
+- Удалён мёртвый код: `EventDao.observeEventsForStudent/getRuleById/deleteRule/getExceptionsForEvent/deleteException`, `StudentDao.deleteLessonRecord/deletePayment`, `HiddenLessonDao.deleteById`, `ScheduleCacheDao.lastSyncedAt` (время синка уже трекается через `AppSettings`) — нигде не вызывались.
+- SQL двух версий (Flow/suspend) запроса `EventDao` «события вокруг диапазона» вынесен в общую константу `EVENTS_AROUND_SQL`, чтобы не расходились при правках.
 
 ## Известные риски
 

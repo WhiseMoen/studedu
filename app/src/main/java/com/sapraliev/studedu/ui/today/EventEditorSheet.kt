@@ -45,6 +45,7 @@ import com.sapraliev.studedu.data.repository.NewRecurrence
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
+import com.sapraliev.studedu.ui.util.filterMoneyInput
 import kotlin.time.Duration.Companion.hours
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Instant
@@ -196,11 +197,11 @@ fun EventEditorSheet(
                     Text(RussianDates.dayMonth(date))
                 }
                 OutlinedButton(onClick = { timePickerFor = "start" }) {
-                    Text("%02d:%02d".format(startHour, startMinute))
+                    Text(RussianDates.time(startHour, startMinute))
                 }
                 Text("—", modifier = Modifier.padding(top = 12.dp))
                 OutlinedButton(onClick = { timePickerFor = "end" }) {
-                    Text("%02d:%02d".format(endHour, endMinute))
+                    Text(RussianDates.time(endHour, endMinute))
                 }
             }
 
@@ -430,13 +431,13 @@ private fun NewStudentInlineDialog(
                 )
                 OutlinedTextField(
                     value = priceText,
-                    onValueChange = { priceText = it.filter { c -> c.isDigit() || c == '.' }.take(9) },
+                    onValueChange = { priceText = it.filterMoneyInput() },
                     label = { Text("Ставка за занятие, ₽") },
                     singleLine = true,
                 )
                 OutlinedTextField(
                     value = feeText,
-                    onValueChange = { feeText = it.filter { c -> c.isDigit() || c == '.' }.take(9) },
+                    onValueChange = { feeText = it.filterMoneyInput() },
                     label = { Text("Сумма за месяц, ₽ (необязательно)") },
                     singleLine = true,
                 )

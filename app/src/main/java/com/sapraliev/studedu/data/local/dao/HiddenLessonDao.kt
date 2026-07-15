@@ -29,7 +29,4 @@ interface HiddenLessonDao {
 
     @Delete
     suspend fun delete(rule: HiddenLessonRuleEntity)
-
-    @Query("DELETE FROM hidden_lesson_rules WHERE id = :id")
-    suspend fun deleteById(id: String)
 }

@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sapraliev.studedu.ui.util.Money
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.ArrowLeft
 import compose.icons.feathericons.Trash2
@@ -166,18 +167,10 @@ private fun StatsPeriodLine(label: String, lessons: Int, paid: Double, charged: 
     Column {
         Text(label, style = MaterialTheme.typography.labelLarge)
         Text(
-            "занятий $lessons · получено ${formatMoney(paid)} · начислено ${formatMoney(charged)}",
+            "занятий $lessons · получено ${Money.format(paid)} · начислено ${Money.format(charged)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-private fun formatMoney(amount: Double): String {
-    val rounded = if (amount == amount.toLong().toDouble()) {
-        amount.toLong().toString()
-    } else {
-        "%.2f".format(amount)
-    }
-    return "$rounded ₽"
-}
