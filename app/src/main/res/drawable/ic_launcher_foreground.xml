@@ -1,17 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Монограмма «S»: толстый скруглённый штрих с эффектом гравировки
+     (светлый и тёмный дубликаты со сдвигом), как у часов на «Сегодня». -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Простая «книга + часы» как временная иконка -->
+    <group android:translateX="1.2" android:translateY="1.2">
+        <path
+            android:pathData="M68,32 C68,20 40,20 40,34 C40,48 68,48 68,60 C68,74 40,74 40,62"
+            android:strokeColor="#15161A"
+            android:strokeAlpha="0.3"
+            android:strokeWidth="15"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+    </group>
+    <group android:translateX="-1.2" android:translateY="-1.2">
+        <path
+            android:pathData="M68,32 C68,20 40,20 40,34 C40,48 68,48 68,60 C68,74 40,74 40,62"
+            android:strokeColor="#FFFFFF"
+            android:strokeAlpha="0.5"
+            android:strokeWidth="15"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+    </group>
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,36 h40 v4 h-40 z M34,46 h40 v4 h-40 z M34,56 h28 v4 h-28 z M34,66 h28 v4 h-28 z" />
-    <path
-        android:fillColor="#EF8354"
-        android:pathData="M74,58 m-12,0 a12,12 0 1,1 24,0 a12,12 0 1,1 -24,0" />
-    <path
-        android:fillColor="#2B2D42"
-        android:pathData="M73,50 h2 v9 h6 v2 h-8 z" />
+        android:pathData="M68,32 C68,20 40,20 40,34 C40,48 68,48 68,60 C68,74 40,74 40,62"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="15"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
 </vector>
