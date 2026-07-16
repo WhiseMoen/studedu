@@ -83,6 +83,13 @@ fun TodayScreen(
     var universityAction by remember { mutableStateOf<ScheduleCard.University?>(null) }
     var markDoneCard by remember { mutableStateOf<ScheduleCard.Personal?>(null) }
 
+    fun onCardClicked(card: ScheduleCard) {
+        when (card) {
+            is ScheduleCard.Personal -> personalAction = card
+            is ScheduleCard.University -> universityAction = card
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
@@ -122,38 +129,33 @@ fun TodayScreen(
                     }
                 }
             }
-            if (state.mode == ViewMode.MONTH) {
-                item(key = "month-grid") {
+            when (state.mode) {
+                ViewMode.MONTH -> item(key = "month-grid") {
                     MonthGrid(state = state, onDayClick = viewModel::selectDay)
                 }
-            } else {
-                state.days.forEach { section ->
-                    if (state.mode == ViewMode.WEEK) {
-                        item(key = "header-${section.date}") {
-                            Text(
-                                text = RussianDates.fullDate(section.date),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                        }
+                ViewMode.DAY -> {
+                    val section = state.days.firstOrNull()
+                    if (section != null && section.cards.isEmpty()) {
+                        item(key = "empty-day") { EmptyDay(state.universityGroup) }
                     }
-                    if (section.cards.isEmpty() && state.mode == ViewMode.DAY) {
-                        item(key = "empty-${section.date}") { EmptyDay(state.universityGroup) }
-                    }
-                    items(section.cards, key = { it.key }) { card ->
-                        ScheduleCardView(
-                            card = card,
+                    item(key = "day-grid") {
+                        DayTimelineGrid(
+                            section = section,
                             now = state.now,
-                            onClick = {
-                                when (card) {
-                                    is ScheduleCard.Personal -> personalAction = card
-                                    is ScheduleCard.University -> universityAction = card
-                                }
-                            },
-                            modifier = Modifier.padding(vertical = 5.dp),
+                            onCardClick = ::onCardClicked,
+                            modifier = Modifier.fillParentMaxHeight(0.62f),
                         )
                     }
+                }
+                ViewMode.WEEK -> item(key = "week-grid") {
+                    WeekTimelineGrid(
+                        days = state.days,
+                        selectedDate = state.selectedDate,
+                        now = state.now,
+                        onDayHeaderClick = viewModel::selectDay,
+                        onCardClick = ::onCardClicked,
+                        modifier = Modifier.fillParentMaxHeight(0.62f),
+                    )
                 }
             }
             item { Spacer(Modifier.height(80.dp)) }
@@ -468,20 +470,15 @@ private fun MonthDayCell(
     }
 }
 
+/**
+ * Цвет типа/оттенка ученика и альфа «подложки» — общие для карточки в списке
+ * ([ScheduleCardView]) и компактного блока в сетке недели/дня ([TimelineEventBlock]),
+ * чтобы оба стиля не разъезжались местами по цвету.
+ */
 @Composable
-private fun ScheduleCardView(
-    card: ScheduleCard,
-    now: Instant,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val zone = TimeZone.currentSystemDefault()
-    val start = card.start.toLocalDateTime(zone)
-    val end = card.end.toLocalDateTime(zone)
-    val hasConflict = card.conflictTitles.isNotEmpty()
-    val isPast = card.end < now
-
+internal fun scheduleCardColors(card: ScheduleCard, now: Instant): Pair<Color, Float> {
     val dimmed = card is ScheduleCard.University && card.dimmed
+    val isPast = card.end < now
     val studentTint = (card as? ScheduleCard.Personal)?.studentTint
     val baseColor = when {
         studentTint != null -> StudentTintPalette.colorFor(studentTint)
@@ -498,6 +495,22 @@ private fun ScheduleCardView(
         isPast -> 0.18f
         else -> 0.32f
     }
+    return baseColor to washAlpha
+}
+
+@Composable
+private fun ScheduleCardView(
+    card: ScheduleCard,
+    now: Instant,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val zone = TimeZone.currentSystemDefault()
+    val start = card.start.toLocalDateTime(zone)
+    val end = card.end.toLocalDateTime(zone)
+    val hasConflict = card.conflictTitles.isNotEmpty()
+    val dimmed = card is ScheduleCard.University && card.dimmed
+    val (baseColor, washAlpha) = scheduleCardColors(card, now)
 
     // Неоморфная карточка: поверхность в тон фона (как сетка месяца), а цвет
     // типа/оттенок ученика — лёгкой подложкой поверх, не сплошной заливкой,
