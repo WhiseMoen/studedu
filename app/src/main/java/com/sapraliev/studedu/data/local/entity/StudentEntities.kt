@@ -16,6 +16,15 @@ enum class PaymentDirection {
     PAYMENT,
 }
 
+/**
+ * Оттенок карточек занятий этого ученика (enum student_tint) — чтобы карточки
+ * не сливались в один сплошной цвет типа события. `null` на [StudentEntity] —
+ * оттенок не выбран, карточка использует обычный цвет типа события.
+ */
+enum class StudentTint {
+    SKY, ROSE, AMBER, MINT, SAND, SLATE,
+}
+
 /** Ученик. Предметы и ставки живут в enrollments (ученик × предмет). */
 @Entity(tableName = "students")
 data class StudentEntity(
@@ -26,6 +35,7 @@ data class StudentEntity(
     val contact: String? = null,
     val active: Boolean = true,
     val notes: String? = null,
+    @ColumnInfo(name = "color_tint") val colorTint: StudentTint? = null,
     @ColumnInfo(name = "created_at") val createdAt: Instant,
     @ColumnInfo(name = "updated_at") val updatedAt: Instant,
 )

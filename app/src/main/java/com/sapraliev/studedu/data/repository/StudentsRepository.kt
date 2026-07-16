@@ -7,9 +7,11 @@ import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
 import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -151,6 +153,15 @@ class StudentsRepository(
     suspend fun setStudentActive(id: String, active: Boolean) {
         studentDao.setActive(id, active, Clock.System.now())
     }
+
+    /** Оттенок карточек занятий этого ученика в ленте; `null` — обычный цвет типа события. */
+    suspend fun setStudentTint(id: String, tint: StudentTint?) {
+        studentDao.setColorTint(id, tint, Clock.System.now())
+    }
+
+    /** id ученика → оттенок, для подсветки карточек занятий в ленте «Сегодня». */
+    fun observeStudentTints(): Flow<Map<String, StudentTint?>> =
+        studentDao.observeTints().map { rows -> rows.associate { it.id to it.colorTint } }
 
     /** Меняет предмет/ставку. История начислений не переписывается — суммы уже скопированы в payments. */
     suspend fun updateEnrollment(

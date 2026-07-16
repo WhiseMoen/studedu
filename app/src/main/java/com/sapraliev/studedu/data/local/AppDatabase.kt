@@ -44,7 +44,7 @@ import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
         EnrollmentEntity::class,
         ScheduledReminderEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -217,6 +217,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v5 → v6: оттенок карточек занятий ученика (чтобы не сливались в сплошной цвет). */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `students` ADD COLUMN `color_tint` TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -224,7 +231,9 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "studedu.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+                    )
                     .build()
                     .also { instance = it }
             }

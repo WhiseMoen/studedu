@@ -6,6 +6,7 @@ import com.sapraliev.studedu.data.local.entity.ExceptionType
 import com.sapraliev.studedu.data.local.entity.HiddenLessonMode
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
 import com.sapraliev.studedu.data.local.entity.RecurrenceFreq
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import com.sapraliev.studedu.data.local.entity.TaskSource
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -96,6 +97,13 @@ class Converters {
     @TypeConverter
     fun stringToHiddenLessonMode(value: String?): HiddenLessonMode? =
         value?.let { HiddenLessonMode.valueOf(it.uppercase()) }
+
+    @TypeConverter
+    fun studentTintToString(value: StudentTint?): String? = value?.name?.lowercase()
+
+    @TypeConverter
+    fun stringToStudentTint(value: String?): StudentTint? =
+        value?.let { StudentTint.valueOf(it.uppercase()) }
 
     private companion object {
         /** U+001F (unit separator) — не встречается в обычном тексте. */

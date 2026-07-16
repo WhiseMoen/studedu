@@ -1,9 +1,13 @@
 package com.sapraliev.studedu.ui.students
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,14 +46,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sapraliev.studedu.data.local.entity.EnrollmentEntity
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
+import com.sapraliev.studedu.ui.theme.StudentTintPalette
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.Money
 import com.sapraliev.studedu.ui.util.RussianDates
@@ -61,6 +69,7 @@ import compose.icons.feathericons.Plus
 import compose.icons.feathericons.Trash2
 import compose.icons.feathericons.UserCheck
 import compose.icons.feathericons.UserMinus
+import compose.icons.feathericons.X
 
 @Composable
 fun StudentsScreen(
@@ -486,11 +495,13 @@ private fun StudentDetail(detail: StudentDetailState, viewModel: StudentsViewMod
         EditStudentDialog(
             initialName = detail.student.name,
             initialContact = detail.student.contact,
+            currentTint = detail.student.colorTint,
             onDismiss = { editStudentOpen = false },
             onSave = { name, contact ->
                 viewModel.updateStudent(name, contact)
                 editStudentOpen = false
             },
+            onTintSelected = viewModel::setStudentTint,
         )
     }
     if (deleteStudentOpen) {
@@ -835,8 +846,10 @@ private fun PaymentDialog(
 private fun EditStudentDialog(
     initialName: String,
     initialContact: String?,
+    currentTint: StudentTint?,
     onDismiss: () -> Unit,
     onSave: (name: String, contact: String?) -> Unit,
+    onTintSelected: (StudentTint?) -> Unit,
 ) {
     var name by remember { mutableStateOf(initialName) }
     var contact by remember { mutableStateOf(initialContact ?: "") }
@@ -858,6 +871,12 @@ private fun EditStudentDialog(
                     label = { Text("Контакт (телефон/tg)") },
                     singleLine = true,
                 )
+                Text(
+                    "Оттенок карточек занятий",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TintSwatchRow(selected = currentTint, onSelect = onTintSelected)
             }
         },
         confirmButton = {
@@ -872,6 +891,62 @@ private fun EditStudentDialog(
             TextButton(onClick = onDismiss) { Text("Отмена") }
         },
     )
+}
+
+/** Ряд свотчей оттенка + «сброс» (обычный цвет типа события). */
+@Composable
+private fun TintSwatchRow(selected: StudentTint?, onSelect: (StudentTint?) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        TintSwatch(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            isSelected = selected == null,
+            onClick = { onSelect(null) },
+            content = {
+                Icon(
+                    FeatherIcons.X,
+                    contentDescription = "Без оттенка",
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
+        StudentTintPalette.entries.forEach { (tint, _) ->
+            TintSwatch(
+                color = StudentTintPalette.colorFor(tint),
+                isSelected = selected == tint,
+                onClick = { onSelect(tint) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TintSwatch(
+    color: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    content: (@Composable () -> Unit)? = null,
+) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(color)
+            .then(
+                if (isSelected) {
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                } else {
+                    Modifier
+                },
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        content?.invoke()
+    }
 }
 
 private fun enrollmentRateLabel(enrollment: EnrollmentEntity, monthCovered: Boolean): String {

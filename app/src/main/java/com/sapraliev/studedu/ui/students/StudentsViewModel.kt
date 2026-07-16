@@ -12,6 +12,7 @@ import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentDirection
 import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import com.sapraliev.studedu.data.repository.StudentOverview
 import com.sapraliev.studedu.data.repository.StudentsRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -235,6 +236,14 @@ class StudentsViewModel(
         if (name.isBlank()) return
         viewModelScope.launch {
             repository.updateStudent(studentId, name, contact)
+        }
+    }
+
+    /** Оттенок карточек занятий этого ученика; `null` — вернуть обычный цвет типа события. */
+    fun setStudentTint(tint: StudentTint?) {
+        val studentId = selectedStudentId.value ?: return
+        viewModelScope.launch {
+            repository.setStudentTint(studentId, tint)
         }
     }
 

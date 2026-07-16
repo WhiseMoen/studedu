@@ -9,6 +9,7 @@ import androidx.room.Query
 import com.sapraliev.studedu.data.local.entity.LessonRecordEntity
 import com.sapraliev.studedu.data.local.entity.PaymentEntity
 import com.sapraliev.studedu.data.local.entity.StudentEntity
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -48,6 +49,14 @@ interface StudentDao {
     /** «Не активен» — прячет ученика из «Учеников» и расписания, статистика сохраняется. */
     @Query("UPDATE students SET active = :active, updated_at = :now WHERE id = :id")
     suspend fun setActive(id: String, active: Boolean, now: Instant)
+
+    /** Оттенок карточек занятий этого ученика в ленте; `null` — обычный цвет типа события. */
+    @Query("UPDATE students SET color_tint = :tint, updated_at = :now WHERE id = :id")
+    suspend fun setColorTint(id: String, tint: StudentTint?, now: Instant)
+
+    /** Только id + оттенок — для подсветки карточек в ленте, без лишних полей. */
+    @Query("SELECT id, color_tint FROM students")
+    fun observeTints(): Flow<List<StudentTintRow>>
 
     // ---------- записи занятий ----------
 
@@ -212,4 +221,10 @@ data class StudentPeriodTotals(
 data class StudentLessonCount(
     @ColumnInfo(name = "student_id") val studentId: String,
     val count: Int,
+)
+
+/** Проекция «ученик → оттенок» для подсветки карточек в ленте. */
+data class StudentTintRow(
+    val id: String,
+    @ColumnInfo(name = "color_tint") val colorTint: StudentTint?,
 )

@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import com.sapraliev.studedu.data.settings.ThemeMode
 
 // База — читаемый пастельный Material 3.
@@ -88,4 +89,30 @@ object EventPalette {
     @Composable
     fun university(): Color =
         if (LocalIsDarkTheme.current) UniversityPastelDark else UniversityPastel
+}
+
+/** Оттенки карточек занятий по ученику — выбираются в «Учениках», см. [StudentTint]. */
+object StudentTintPalette {
+    @Composable
+    fun colorFor(tint: StudentTint): Color {
+        val dark = LocalIsDarkTheme.current
+        return when (tint) {
+            StudentTint.SKY -> if (dark) TintSkyDark else TintSky
+            StudentTint.ROSE -> if (dark) TintRoseDark else TintRose
+            StudentTint.AMBER -> if (dark) TintAmberDark else TintAmber
+            StudentTint.MINT -> if (dark) TintMintDark else TintMint
+            StudentTint.SAND -> if (dark) TintSandDark else TintSand
+            StudentTint.SLATE -> if (dark) TintSlateDark else TintSlate
+        }
+    }
+
+    /** Порядок и подписи свотчей в выборе (экран «Ученики»). */
+    val entries: List<Pair<StudentTint, String>> = listOf(
+        StudentTint.SKY to "Небо",
+        StudentTint.ROSE to "Роза",
+        StudentTint.AMBER to "Янтарь",
+        StudentTint.MINT to "Мята",
+        StudentTint.SAND to "Песок",
+        StudentTint.SLATE to "Сланец",
+    )
 }

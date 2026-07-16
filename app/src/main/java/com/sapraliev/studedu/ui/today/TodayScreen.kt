@@ -22,8 +22,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -58,6 +56,7 @@ import com.sapraliev.studedu.ui.theme.ConflictRed
 import com.sapraliev.studedu.ui.theme.EventPalette
 import com.sapraliev.studedu.ui.theme.LocalNeuShadows
 import com.sapraliev.studedu.ui.theme.NeuShadows
+import com.sapraliev.studedu.ui.theme.StudentTintPalette
 import com.sapraliev.studedu.ui.theme.neumorphic
 import com.sapraliev.studedu.ui.util.RussianDates
 import compose.icons.FeatherIcons
@@ -483,28 +482,40 @@ private fun ScheduleCardView(
     val isPast = card.end < now
 
     val dimmed = card is ScheduleCard.University && card.dimmed
-    val baseColor = when (card) {
-        is ScheduleCard.University -> EventPalette.university()
-        is ScheduleCard.Personal -> when (card.occurrence.type) {
+    val studentTint = (card as? ScheduleCard.Personal)?.studentTint
+    val baseColor = when {
+        studentTint != null -> StudentTintPalette.colorFor(studentTint)
+        card is ScheduleCard.University -> EventPalette.university()
+        card is ScheduleCard.Personal -> when (card.occurrence.type) {
             EventType.PERSONAL -> EventPalette.personal()
             EventType.LESSON -> EventPalette.lesson()
             EventType.DEADLINE -> EventPalette.deadline()
         }
+        else -> EventPalette.personal()
     }
-    val cardColor = when {
-        dimmed -> baseColor.copy(alpha = 0.35f)
-        isPast -> baseColor.copy(alpha = 0.45f)
-        else -> baseColor
+    val washAlpha = when {
+        dimmed -> 0.14f
+        isPast -> 0.18f
+        else -> 0.32f
     }
 
-    Card(
+    // Неоморфная карточка: поверхность в тон фона (как сетка месяца), а цвет
+    // типа/оттенок ученика — лёгкой подложкой поверх, не сплошной заливкой,
+    // чтобы объём давали тени, а не контраст цвета (см. Neumorphic.kt).
+    Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
+        color = MaterialTheme.colorScheme.background,
         border = if (hasConflict) BorderStroke(2.dp, ConflictRed) else null,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .neumorphic(LocalNeuShadows.current, cornerRadius = 20.dp, blur = 10.dp, offset = 4.dp),
     ) {
-        Row(modifier = Modifier.padding(14.dp)) {
+        Row(
+            modifier = Modifier
+                .background(baseColor.copy(alpha = washAlpha))
+                .padding(14.dp),
+        ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     RussianDates.time(start.hour, start.minute),

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sapraliev.studedu.core.AppGraph
 import com.sapraliev.studedu.data.local.entity.EventType
+import com.sapraliev.studedu.data.local.entity.StudentTint
 import com.sapraliev.studedu.data.local.entity.UniversityScheduleCacheEntity
 import com.sapraliev.studedu.data.repository.EventRepository
 import com.sapraliev.studedu.data.repository.NewRecurrence
@@ -56,6 +57,8 @@ sealed interface ScheduleCard {
     data class Personal(
         val occurrence: Occurrence,
         override val conflictTitles: List<String>,
+        /** Оттенок ученика (выбирается в «Учениках») — переопределяет обычный цвет типа события. */
+        val studentTint: StudentTint? = null,
     ) : ScheduleCard {
         override val key get() = "p-${occurrence.eventId}-${occurrence.start}"
         override val title get() = occurrence.title
@@ -180,9 +183,10 @@ class TodayViewModel(
                     eventRepository.observeOccurrences(from, to),
                     scheduleRepository.observeLessons(from, to),
                     rulesFlow,
-                ) { occurrences, lessons, rules ->
+                    studentsRepository.observeStudentTints(),
+                ) { occurrences, lessons, rules, tints ->
                     val groupLessons = lessons.filter { group != null && it.group == group }
-                    buildContent(date, m, fromDate, dayCount, group, occurrences, groupLessons, rules)
+                    buildContent(date, m, fromDate, dayCount, group, occurrences, groupLessons, rules, tints)
                 }
             }
             .stateIn(
@@ -208,6 +212,7 @@ class TodayViewModel(
         occurrences: List<Occurrence>,
         lessons: List<UniversityScheduleCacheEntity>,
         rules: List<com.sapraliev.studedu.data.local.entity.HiddenLessonRuleEntity>,
+        studentTints: Map<String, StudentTint?>,
     ): TodayContent {
         // Видимость пар: HIDDEN выпадают совсем, DIMMED видны, но без конфликтов.
         val visibleLessons = mutableListOf<UniversityScheduleCacheEntity>()
@@ -229,7 +234,10 @@ class TodayViewModel(
             conflicts[item]?.map(::titleOf) ?: emptyList()
 
         val cards: List<ScheduleCard> =
-            occurrences.map { ScheduleCard.Personal(it, titlesFor(it)) } +
+            occurrences.map { occurrence ->
+                val tint = occurrence.studentId?.let { studentTints[it] }
+                ScheduleCard.Personal(occurrence, titlesFor(occurrence), tint)
+            } +
                 visibleLessons.map { ScheduleCard.University(it, dimmed = false, titlesFor(it)) } +
                 dimmedLessons.map { ScheduleCard.University(it, dimmed = true, emptyList()) }
 

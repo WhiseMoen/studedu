@@ -40,6 +40,23 @@ val UniversityPastelDark = Color(0xFF3B3450)
 val ConflictRed = Color(0xFFD4574E)
 val ConflictRedDark = Color(0xFFC96B63) // мягче для тёмного фона
 
+// Оттенки карточек занятий по ученику (StudentTint) — чтобы карточки не
+// сливались в сплошной LessonPastel; та же светлота/сатурация, что у
+// остальной пастельной палитры, просто другой тон.
+val TintSky = Color(0xFFC9E4F0)
+val TintRose = Color(0xFFF3CCDA)
+val TintAmber = Color(0xFFF5E3B3)
+val TintMint = Color(0xFFC7EDDD)
+val TintSand = Color(0xFFEBDEC7)
+val TintSlate = Color(0xFFD7DEE6)
+
+val TintSkyDark = Color(0xFF2C3E4D)
+val TintRoseDark = Color(0xFF402E38)
+val TintAmberDark = Color(0xFF423A28)
+val TintMintDark = Color(0xFF2A423C)
+val TintSandDark = Color(0xFF3D362C)
+val TintSlateDark = Color(0xFF33383F)
+
 // Неоморфные тени
 val NeuLightShadowLight = Color(0xCCFFFFFF)
 val NeuDarkShadowLight = Color(0xFFC8CEDA)
