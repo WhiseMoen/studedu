@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -81,11 +82,13 @@ fun SettingsScreen(
     // перечитывания на ON_RESUME баннер «разреши будильники» продолжал бы
     // висеть даже после того, как право уже выдано.
     var exactAlarmsAllowed by remember { mutableStateOf(canScheduleExactAlarms(context)) }
+    var batteryUnrestricted by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 exactAlarmsAllowed = canScheduleExactAlarms(context)
+                batteryUnrestricted = isIgnoringBatteryOptimizations(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -134,6 +137,33 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("Разрешить точные будильники") }
                     }
+                }
+            }
+        }
+
+        if (!batteryUnrestricted) {
+            item {
+                SettingsCard(title = "Уведомления") {
+                    Text(
+                        "Оптимизация батареи на некоторых устройствах откладывает напоминания " +
+                            "о занятиях на час-два. Отключи её для приложения, чтобы уведомления " +
+                            "приходили точно вовремя.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        AndroidSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                        Uri.parse("package:${context.packageName}"),
+                                    ),
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Отключить оптимизацию батареи") }
                 }
             }
         }
@@ -483,6 +513,11 @@ private fun StatsRow(label: String, paid: Double, charged: Double, lessons: Int)
 private fun canScheduleExactAlarms(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
     return context.getSystemService(AlarmManager::class.java)?.canScheduleExactAlarms() ?: false
+}
+
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val powerManager = context.getSystemService(PowerManager::class.java) ?: return true
+    return powerManager.isIgnoringBatteryOptimizations(context.packageName)
 }
 
 private fun formatSyncTime(epochMillis: Long): String {

@@ -18,6 +18,16 @@ data class PlannedReminder(
     val triggerAt: Instant,
     val title: String,
     val body: String,
+    /**
+     * Напоминания о занятии минутно точны (за 30 мин / в момент начала) — обычный
+     * `setExactAndAllowWhileIdle` на части устройств (агрессивный Doze/производитель)
+     * всё равно откладывается на час-два. `AlarmManager.setAlarmClock` не подчиняется
+     * Doze/App Standby вообще (тот же механизм, что у будильника в часах), поэтому
+     * тиры занятия помечаются этим флагом; для дедлайнов/личных событий (точность
+     * до дня) разница не критична — оставляем как есть, чтобы не плодить иконку
+     * будильника в статус-баре на каждый дальний тир.
+     */
+    val alarmClock: Boolean = false,
 )
 
 /**
@@ -76,6 +86,7 @@ object ReminderPlanner {
                 triggerAt = triggerAt,
                 title = titleFor(occurrence),
                 body = bodyFor(occurrence, tierIndex),
+                alarmClock = occurrence.type == EventType.LESSON,
             )
         }
     }

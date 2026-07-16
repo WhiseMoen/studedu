@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.content.getSystemService
+import com.sapraliev.studedu.MainActivity
 import com.sapraliev.studedu.domain.reminders.PlannedReminder
 
 /**
@@ -30,7 +31,21 @@ object ReminderAlarmScheduler {
         val pendingIntent = pendingIntentFor(context, reminder)
         val triggerAtMillis = reminder.triggerAt.toEpochMilliseconds()
         try {
-            if (canScheduleExact(context)) {
+            if (reminder.alarmClock && canScheduleExact(context)) {
+                // Занятие: setAlarmClock не подчиняется Doze/App Standby вообще
+                // (в отличие от setExactAndAllowWhileIdle, который на части
+                // устройств/бакетов всё равно откладывается на час-два).
+                val showIntent = PendingIntent.getActivity(
+                    context,
+                    reminder.requestCode,
+                    Intent(context, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                alarmManager.setAlarmClock(
+                    AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent),
+                    pendingIntent,
+                )
+            } else if (canScheduleExact(context)) {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent,
                 )
